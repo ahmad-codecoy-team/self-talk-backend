@@ -22,9 +22,12 @@ app.use(
 app.use(express.json());
 
 // routes
-app.use("/api/auth", authRoutes);
+// app.use("/api/auth", authRoutes);
 
-app.use("/api/talk", talkRoutes);
+// app.use("/api/talk", talkRoutes);
+
+app.use("/self-talk-backend/api/auth", authRoutes);
+app.use("/self-talk-backend/api/talk", talkRoutes);
 
 // error handler (last)
 app.use(errorHandler);
