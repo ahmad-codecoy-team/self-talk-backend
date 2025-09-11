@@ -19,7 +19,10 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    // For password reset
+    profilePicture: {
+      type: String, // URL of the profile picture
+      default: "uploads/profile_pics/default-profile-pic.jpg", // Ensure the default path is valid and points to a local file
+    },
     resetOTP: {
       type: String,
       default: null,

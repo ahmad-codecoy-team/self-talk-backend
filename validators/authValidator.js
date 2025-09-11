@@ -176,10 +176,75 @@ const resetPasswordValidation = [
     }),
 ];
 
+// UPDATE PROFILE VALIDATION
+const updateProfileValidation = [
+  body("username")
+    .optional()
+    .custom(notArray)
+    .withMessage("Username must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Username must be a string")
+    .bail()
+    .trim()
+    .isLength({ min: 3, max: 30 })
+    .withMessage("Username must be 3–30 characters long")
+    .bail()
+    .matches(USERNAME_RE)
+    .withMessage(
+      "Username must start with a letter and may contain letters, numbers, underscores, or dots"
+    ),
+];
+
+// CHANGE PASSWORD VALIDATION
+const changePasswordValidation = [
+  body("oldPassword")
+    .exists({ checkFalsy: true })
+    .withMessage("Current password is required")
+    .bail()
+    .custom(notArray)
+    .withMessage("Current password must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Current password must be a string"),
+
+  body("newPassword")
+    .exists({ checkFalsy: true })
+    .withMessage("New password is required")
+    .bail()
+    .custom(notArray)
+    .withMessage("New password must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("New password must be a string")
+    .bail()
+    .isLength({ min: 6 })
+    .withMessage("New password must be at least 6 characters"),
+
+  body("confirmNewPassword")
+    .exists({ checkFalsy: true })
+    .withMessage("Confirm new password is required")
+    .bail()
+    .custom(notArray)
+    .withMessage("Confirm new password must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Confirm new password must be a string")
+    .bail()
+    .custom((value, { req }) => {
+      if (value !== req.body.newPassword) {
+        throw new Error("New passwords do not match");
+      }
+      return true;
+    }),
+];
+
 module.exports = {
   registerValidation,
   loginValidation,
   forgotPasswordValidation,
   verifyOtpValidation, // ← export new validator
   resetPasswordValidation, // ← updated to new fields
+  updateProfileValidation,
+  changePasswordValidation,
 };

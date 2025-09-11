@@ -2,15 +2,17 @@ const express = require("express");
 const {
   register,
   login,
-  me,
   logout,
   forgotPassword,
   resetPassword,
   verifyResetOtp,
+  profile,
+  changePassword,
 } = require("../controllers/authController");
 const { requireAuth } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validateMiddleware");
 const { error, success } = require("../utils/response");
+const upload = require("../middlewares/upload"); // Multer upload middleware
 
 const {
   registerValidation,
@@ -18,6 +20,8 @@ const {
   forgotPasswordValidation,
   resetPasswordValidation,
   verifyOtpValidation,
+  updateProfileValidation,
+  changePasswordValidation,
 } = require("../validators/authValidator");
 
 const router = express.Router();
@@ -25,10 +29,26 @@ const router = express.Router();
 // =========================
 // Auth Routes
 // =========================
-router.post("/register", registerValidation, validate, register);
+
+router.post("/register", upload.single("profilePicture"), register);
 router.post("/login", loginValidation, validate, login);
 
-router.get("/me", requireAuth, me);
+router.get("/profile", requireAuth, profile);
+router.put(
+  "/profile",
+  requireAuth,
+  upload.single("profilePicture"),
+  updateProfileValidation,
+  validate,
+  profile
+);
+router.put(
+  "/change-password",
+  requireAuth,
+  changePasswordValidation,
+  validate,
+  changePassword
+);
 router.post("/logout", logout);
 
 router.post(

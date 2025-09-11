@@ -2,8 +2,8 @@
 const express = require("express");
 const router = express.Router();
 
-const { requireAuth } = require("../middlewares/authMiddleware"); // your existing auth
-const validate = require("../middlewares/validateMiddleware"); // your central validator
+const { requireAuth } = require("../middlewares/authMiddleware");
+const validate = require("../middlewares/validateMiddleware");
 
 const {
   createConversationValidation,

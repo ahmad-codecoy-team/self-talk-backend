@@ -18,17 +18,21 @@ const RESET_TOKEN_EXPIRES = "15m"; // 15 minutes
 function signAccessToken(payload) {
   return jwt.sign(payload, JWT_ACCESS_SECRET, { expiresIn: ACCESS_EXPIRES });
 }
+
 function signResetToken(payload) {
   return jwt.sign(payload, JWT_RESET_SECRET, {
     expiresIn: RESET_TOKEN_EXPIRES,
   });
 }
+
 function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
+
 function hashOtp(otp) {
   return crypto.createHash("sha256").update(otp).digest("hex");
 }
+
 function constantTimeEq(a, b) {
   const bufA = Buffer.from(a, "hex");
   const bufB = Buffer.from(b, "hex");
@@ -41,27 +45,72 @@ exports.register = async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
 
-    if (!username || !email || !password) {
-      return error(res, 400, "Username, email & password are required");
+    // Comprehensive validation
+    const validationErrors = {};
+
+    // Required field validation
+    if (!username || username.trim() === "") {
+      validationErrors.username = "Username is required";
+    } else if (username.length < 3 || username.length > 30) {
+      validationErrors.username = "Username must be 3-30 characters long";
+    } else if (!/^[A-Za-z][A-Za-z0-9._]*$/.test(username)) {
+      validationErrors.username =
+        "Username must start with a letter and may contain letters, numbers, underscores, or dots";
     }
 
-    const existingEmail = await User.findOne({ email });
+    if (!email || email.trim() === "") {
+      validationErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      validationErrors.email = "Valid email is required";
+    }
+
+    if (!password || password.trim() === "") {
+      validationErrors.password = "Password is required";
+    } else if (password.length < 6) {
+      validationErrors.password = "Password must be at least 6 characters";
+    }
+
+    // Return validation errors if any
+    if (Object.keys(validationErrors).length > 0) {
+      return error(res, 400, "Validation failed", validationErrors);
+    }
+
+    // Check if email or username already exists
+    const existingEmail = await User.findOne({
+      email: email.trim().toLowerCase(),
+    });
     if (existingEmail) return error(res, 409, "Email already in use");
 
-    const existingUsername = await User.findOne({ username });
+    const existingUsername = await User.findOne({ username: username.trim() });
     if (existingUsername) return error(res, 409, "Username already taken");
 
+    // Hash the password
     const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+    // Handle file upload (if profile picture exists, use that)
+    let profilePicture = "uploads/profile_pics/default-profile-pic.jpg";
+    if (req.file) {
+      profilePicture = `/uploads/profile_pics/${req.file.filename}`;
+    }
+
+    // Create new user
     const user = await User.create({
-      username,
-      email,
+      username: username.trim(),
+      email: email.trim().toLowerCase(),
       password: hashedPassword,
+      profilePicture,
     });
 
+    // Generate access token
     const accessToken = signAccessToken({ uid: user._id });
 
     return success(res, 201, "Registered successfully", {
-      user: { _id: user._id, username: user.username, email: user.email },
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        profilePicture: user.profilePicture,
+      },
       accessToken,
     });
   } catch (err) {
@@ -91,11 +140,115 @@ exports.login = async (req, res, next) => {
   }
 };
 
-// =================== ME ===================
-exports.me = async (req, res) => {
-  return success(res, 200, "User info fetched", {
-    _id: req.user.uid,
-  });
+// =================== PROFILE (GET & PUT) ===================
+exports.profile = async (req, res, next) => {
+  try {
+    const userId = req.user.uid;
+
+    // GET - Fetch profile
+    if (req.method === "GET") {
+      const user = await User.findById(userId).select(
+        "-password -resetOTP -resetOTPExp"
+      );
+      if (!user) {
+        return error(res, 404, "User not found");
+      }
+
+      return success(res, 200, "User profile fetched successfully", {
+        user: {
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          profilePicture: user.profilePicture,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
+      });
+    }
+
+    // PUT - Update profile
+    if (req.method === "PUT") {
+      const { username } = req.body;
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return error(res, 404, "User not found");
+      }
+
+      let profileUpdated = false;
+
+      // Check if username is being changed and if it's already taken
+      if (username && username.trim() && username !== user.username) {
+        const existingUsername = await User.findOne({
+          username: username.trim(),
+          _id: { $ne: userId }, // Exclude current user
+        });
+        if (existingUsername) {
+          return error(res, 409, "Username already taken");
+        }
+        user.username = username.trim();
+        profileUpdated = true;
+      }
+
+      // Handle profile picture upload
+      if (req.file) {
+        user.profilePicture = `/uploads/profile_pics/${req.file.filename}`;
+        profileUpdated = true;
+      }
+
+      // Save only if something was actually updated
+      if (profileUpdated) {
+        await user.save();
+      }
+
+      return success(res, 200, "Profile updated successfully", {
+        user: {
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          profilePicture: user.profilePicture,
+          updatedAt: user.updatedAt,
+        },
+      });
+    }
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== CHANGE PASSWORD ===================
+exports.changePassword = async (req, res, next) => {
+  try {
+    const { oldPassword, newPassword, confirmNewPassword } = req.body;
+    const userId = req.user.uid;
+
+    if (newPassword !== confirmNewPassword) {
+      return error(res, 400, "New passwords do not match");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return error(res, 404, "User not found");
+    }
+
+    // Verify old password
+    const isOldPasswordCorrect = await bcrypt.compare(
+      oldPassword,
+      user.password
+    );
+    if (!isOldPasswordCorrect) {
+      return error(res, 400, "Current password is incorrect");
+    }
+
+    // Hash and save new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    user.password = hashedNewPassword;
+    await user.save();
+
+    return success(res, 200, "Password changed successfully");
+  } catch (err) {
+    next(err);
+  }
 };
 
 // =================== LOGOUT ===================
