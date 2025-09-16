@@ -34,8 +34,12 @@ const router = express.Router();
 // =========================
 
 router.post("/register", registerValidation, validate, register);
-router.post("/upload-profile-picture-public", upload.single("profilePicture"), uploadProfilePicturePublic);
-router.post("/upload-profile-picture", requireAuth, upload.single("profilePicture"), uploadProfilePicture);
+router.post(
+  "/upload-profile-picture",
+  upload.single("profilePicture"),
+  uploadProfilePicture
+);
+// router.post("/upload-profile-picture", requireAuth, upload.single("profilePicture"), uploadProfilePicture);
 router.post("/login", loginValidation, validate, login);
 
 router.get("/profile", requireAuth, profile);
@@ -72,6 +76,5 @@ router.post(
   validate,
   resetPassword
 );
-
 
 module.exports = router;

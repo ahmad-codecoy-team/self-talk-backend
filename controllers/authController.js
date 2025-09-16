@@ -131,7 +131,7 @@ exports.register = async (req, res, next) => {
 };
 
 // =================== UPLOAD PROFILE PICTURE (PUBLIC FOR REGISTRATION) ===================
-exports.uploadProfilePicturePublic = async (req, res, next) => {
+exports.uploadProfilePicture = async (req, res, next) => {
   try {
     if (!req.file) {
       return error(res, 400, "Profile picture upload failed", {
@@ -151,40 +151,40 @@ exports.uploadProfilePicturePublic = async (req, res, next) => {
 };
 
 // =================== UPLOAD PROFILE PICTURE (AUTHENTICATED) ===================
-exports.uploadProfilePicture = async (req, res, next) => {
-  try {
-    const userId = req.user.uid;
+// exports.uploadProfilePicture = async (req, res, next) => {
+//   try {
+//     const userId = req.user.uid;
 
-    if (!req.file) {
-      return error(res, 400, "Profile picture upload failed", {
-        profilePicture: "No file was uploaded",
-      });
-    }
+//     if (!req.file) {
+//       return error(res, 400, "Profile picture upload failed", {
+//         profilePicture: "No file was uploaded",
+//       });
+//     }
 
-    // Find the user
-    const user = await User.findById(userId);
-    if (!user) {
-      return error(res, 404, "User not found");
-    }
+//     // Find the user
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       return error(res, 404, "User not found");
+//     }
 
-    // Update profile picture path
-    const oldPicturePath = user.profilePicture;
-    const profilePicturePath = `/uploads/profile_pics/${req.file.filename}`;
-    user.profilePicture = profilePicturePath;
-    await user.save();
+//     // Update profile picture path
+//     const oldPicturePath = user.profilePicture;
+//     const profilePicturePath = `/uploads/profile_pics/${req.file.filename}`;
+//     user.profilePicture = profilePicturePath;
+//     await user.save();
 
-    // Delete old profile picture if it exists and is not empty
-    if (oldPicturePath && oldPicturePath.trim() !== "") {
-      await exports.deleteProfilePicture(userId, oldPicturePath);
-    }
+//     // Delete old profile picture if it exists and is not empty
+//     if (oldPicturePath && oldPicturePath.trim() !== "") {
+//       await exports.deleteProfilePicture(userId, oldPicturePath);
+//     }
 
-    return success(res, 200, "Profile picture uploaded successfully", {
-      profilePicture: profilePicturePath,
-    });
-  } catch (err) {
-    next(err);
-  }
-};
+//     return success(res, 200, "Profile picture uploaded successfully", {
+//       profilePicture: profilePicturePath,
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
 
 // =================== DELETE PROFILE PICTURE ===================
 exports.deleteProfilePicture = async (userId, profilePicturePath) => {
@@ -443,11 +443,7 @@ exports.forgotPassword = async (req, res, next) => {
       `Hi,\n\nWe received a request to reset your password. Your code is:\n\n${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this, you can ignore this email.\n\n— The SelfTalk Team`
     );
 
-    return success(
-      res,
-      200,
-      "Password reset code sent to your email"
-    );
+    return success(res, 200, "Password reset code sent to your email");
   } catch (err) {
     next(err);
   }
