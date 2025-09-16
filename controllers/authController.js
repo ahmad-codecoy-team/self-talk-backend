@@ -45,8 +45,8 @@ function constantTimeEq(a, b) {
 // =================== REGISTER ===================
 exports.register = async (req, res, next) => {
   try {
-    // Ensure req.body exists
-    if (!req.body) {
+    // Ensure req.body exists (only check for undefined/null, not empty objects)
+    if (req.body === undefined || req.body === null) {
       return error(res, 400, "Request body is required", {
         general: "No data provided in request body"
       });
