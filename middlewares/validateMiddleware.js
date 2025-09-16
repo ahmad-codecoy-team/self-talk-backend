@@ -2,8 +2,10 @@ const { validationResult } = require("express-validator");
 const { error } = require("../utils/response");
 
 const validate = (req, res, next) => {
-  // Check if req.body is undefined or null (not empty object)
-  if (req.body === undefined || req.body === null) {
+  // Only check for request body on methods that require it (POST, PUT, PATCH)
+  const methodsRequiringBody = ['POST', 'PUT', 'PATCH'];
+
+  if (methodsRequiringBody.includes(req.method) && (req.body === undefined || req.body === null)) {
     return error(res, 400, "Request body is required", {
       general: "No data provided in request body. Ensure Content-Type is application/json"
     });

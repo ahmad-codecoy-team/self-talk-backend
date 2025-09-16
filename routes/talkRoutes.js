@@ -47,5 +47,4 @@ router.delete(
   ctrl.deleteConversation
 );
 
-
 module.exports = router;
