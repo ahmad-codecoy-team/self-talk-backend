@@ -5,6 +5,25 @@ const isPlainString = (v) => typeof v === "string";
 const notArray = (v) => !Array.isArray(v);
 const USERNAME_RE = /^[A-Za-z][A-Za-z0-9._]*$/;
 
+// Standard email validation chain for consistency across all auth endpoints
+const standardEmailValidation = () => [
+  body("email")
+    .exists({ checkFalsy: true })
+    .withMessage("Email address is required")
+    .bail()
+    .custom(notArray)
+    .withMessage("Email must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Email must be a string")
+    .bail()
+    .trim()
+    .isEmail()
+    .withMessage("Please provide a valid email address (e.g., user@example.com)")
+    .bail()
+    .normalizeEmail()
+];
+
 const registerValidation = [
   body("username")
     .exists({ checkFalsy: true })
@@ -25,21 +44,7 @@ const registerValidation = [
       "Username must start with a letter and can only contain letters, numbers, periods, or underscores"
     ),
 
-  body("email")
-    .exists({ checkFalsy: true })
-    .withMessage("Please provide an email address")
-    .bail()
-    .custom(notArray)
-    .withMessage("Email cannot be an array")
-    .bail()
-    .custom(isPlainString)
-    .withMessage("Email must be a text value")
-    .bail()
-    .trim()
-    .isEmail()
-    .withMessage("Please provide a valid email address (e.g., user@example.com)")
-    .bail()
-    .normalizeEmail(),
+  ...standardEmailValidation(),
 
   body("password")
     .exists({ checkFalsy: true })
@@ -75,21 +80,7 @@ const registerValidation = [
 ];
 
 const loginValidation = [
-  body("email")
-    .exists({ checkFalsy: true })
-    .withMessage("Please enter your email address")
-    .bail()
-    .custom(notArray)
-    .withMessage("Email cannot be an array")
-    .bail()
-    .custom(isPlainString)
-    .withMessage("Email must be a text value")
-    .bail()
-    .trim()
-    .isEmail()
-    .withMessage("Please enter a valid email address")
-    .bail()
-    .normalizeEmail(),
+  ...standardEmailValidation(),
 
   body("password")
     .exists({ checkFalsy: true })
@@ -103,40 +94,12 @@ const loginValidation = [
 ];
 
 const forgotPasswordValidation = [
-  body("email")
-    .exists({ checkFalsy: true })
-    .withMessage("Email is required")
-    .bail()
-    .custom(notArray)
-    .withMessage("Email must not be an array")
-    .bail()
-    .custom(isPlainString)
-    .withMessage("Email must be a string")
-    .bail()
-    .trim()
-    .isEmail()
-    .withMessage("Valid email is required")
-    .bail()
-    .normalizeEmail(),
+  ...standardEmailValidation(),
 ];
 
 // NEW: for POST /verify-reset-otp
 const verifyOtpValidation = [
-  body("email")
-    .exists({ checkFalsy: true })
-    .withMessage("Email is required")
-    .bail()
-    .custom(notArray)
-    .withMessage("Email must not be an array")
-    .bail()
-    .custom(isPlainString)
-    .withMessage("Email must be a string")
-    .bail()
-    .trim()
-    .isEmail()
-    .withMessage("Valid email is required")
-    .bail()
-    .normalizeEmail(),
+  ...standardEmailValidation(),
 
   body("otp")
     .exists({ checkFalsy: true })
@@ -152,7 +115,7 @@ const verifyOtpValidation = [
     .withMessage("OTP must be exactly 6 digits"),
 ];
 
-// UPDATED: for POST /reset-password (now uses resetToken and confirmNewPassword)
+// UPDATED: for POST /reset-password (only resetToken and newPassword required)
 const resetPasswordValidation = [
   body("resetToken")
     .exists({ checkFalsy: true })
@@ -179,23 +142,6 @@ const resetPasswordValidation = [
     .bail()
     .matches(/^(?=.*[A-Za-z])(?=.*\d)/)
     .withMessage("Password must contain at least one letter and one number"),
-
-  body("confirmNewPassword")
-    .exists({ checkFalsy: true })
-    .withMessage("Confirm password is required")
-    .bail()
-    .custom(notArray)
-    .withMessage("Confirm password must not be an array")
-    .bail()
-    .custom(isPlainString)
-    .withMessage("Confirm password must be a string")
-    .bail()
-    .custom((value, { req }) => {
-      if (value !== req.body.newPassword) {
-        throw new Error("Passwords do not match");
-      }
-      return true;
-    }),
 ];
 
 // UPDATE PROFILE VALIDATION

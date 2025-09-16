@@ -87,7 +87,7 @@ Content-Type: application/json
 
 **Validation Rules:**
 - `username`: 3-30 characters, starts with letter, alphanumeric + dots/underscores only
-- `email`: Valid email format
+- `email`: Valid email format (standardized across all endpoints)
 - `password`: Minimum 6 characters, must contain at least one letter and one number
 - `profilePicture`: Optional, must be a valid profile picture path starting with "/uploads/profile_pics/"
 
@@ -303,7 +303,7 @@ Authorization: Bearer <access_token>
 
 **POST** `/auth/forgot-password`
 
-Send password reset OTP to user's email.
+Send password reset OTP to user's email. **Security Update**: Only sends OTP to registered users (returns error if email not found).
 
 **Headers:**
 
@@ -319,12 +319,21 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
+**Response (Success):**
 
 ```json
 {
   "success": true,
-  "message": "If that email exists, you will receive a reset code"
+  "message": "Password reset code sent to your email"
+}
+```
+
+**Error Response (Email not found):**
+
+```json
+{
+  "success": false,
+  "message": "No account found with this email address"
 }
 ```
 
@@ -481,7 +490,7 @@ Authorization: Bearer <access_token>
 
 **POST** `/auth/reset-password`
 
-Reset password using reset token from OTP verification.
+Reset password using reset token from OTP verification. **Update**: Removed `confirmNewPassword` - password confirmation should be handled client-side.
 
 **Headers:**
 
@@ -494,8 +503,7 @@ Content-Type: application/json
 ```json
 {
   "resetToken": "eyJhbGciOiJIUzI1NiIs...",
-  "newPassword": "new_password",
-  "confirmNewPassword": "new_password"
+  "newPassword": "new_password123"
 }
 ```
 

@@ -48,7 +48,7 @@ exports.register = async (req, res, next) => {
     // Ensure req.body exists (only check for undefined/null, not empty objects)
     if (req.body === undefined || req.body === null) {
       return error(res, 400, "Request body is required", {
-        general: "No data provided in request body"
+        general: "No data provided in request body",
       });
     }
 
@@ -60,14 +60,14 @@ exports.register = async (req, res, next) => {
     });
     if (existingEmail) {
       return error(res, 409, "Registration failed", {
-        email: "An account with this email already exists"
+        email: "An account with this email already exists",
       });
     }
 
     const existingUsername = await User.findOne({ username: username.trim() });
     if (existingUsername) {
       return error(res, 409, "Registration failed", {
-        username: "This username is already taken"
+        username: "This username is already taken",
       });
     }
 
@@ -106,19 +106,19 @@ exports.register = async (req, res, next) => {
       const field = Object.keys(err.keyValue)[0];
       const value = err.keyValue[field];
 
-      if (field === 'email') {
+      if (field === "email") {
         return error(res, 409, "Registration failed", {
-          email: "An account with this email already exists"
+          email: "An account with this email already exists",
         });
-      } else if (field === 'username') {
+      } else if (field === "username") {
         return error(res, 409, "Registration failed", {
-          username: "This username is already taken"
+          username: "This username is already taken",
         });
       }
     }
 
     // Handle validation errors from MongoDB
-    if (err.name === 'ValidationError') {
+    if (err.name === "ValidationError") {
       const validationErrors = {};
       Object.keys(err.errors).forEach((field) => {
         validationErrors[field] = err.errors[field].message;
@@ -135,7 +135,7 @@ exports.uploadProfilePicturePublic = async (req, res, next) => {
   try {
     if (!req.file) {
       return error(res, 400, "Profile picture upload failed", {
-        profilePicture: "No file was uploaded"
+        profilePicture: "No file was uploaded",
       });
     }
 
@@ -143,7 +143,7 @@ exports.uploadProfilePicturePublic = async (req, res, next) => {
     const profilePicturePath = `/uploads/profile_pics/${req.file.filename}`;
 
     return success(res, 200, "Profile picture uploaded successfully", {
-      profilePicture: profilePicturePath
+      profilePicture: profilePicturePath,
     });
   } catch (err) {
     next(err);
@@ -157,7 +157,7 @@ exports.uploadProfilePicture = async (req, res, next) => {
 
     if (!req.file) {
       return error(res, 400, "Profile picture upload failed", {
-        profilePicture: "No file was uploaded"
+        profilePicture: "No file was uploaded",
       });
     }
 
@@ -179,7 +179,7 @@ exports.uploadProfilePicture = async (req, res, next) => {
     }
 
     return success(res, 200, "Profile picture uploaded successfully", {
-      profilePicture: profilePicturePath
+      profilePicture: profilePicturePath,
     });
   } catch (err) {
     next(err);
@@ -188,15 +188,20 @@ exports.uploadProfilePicture = async (req, res, next) => {
 
 // =================== DELETE PROFILE PICTURE ===================
 exports.deleteProfilePicture = async (userId, profilePicturePath) => {
-  const fs = require('fs');
-  const path = require('path');
+  const fs = require("fs");
+  const path = require("path");
 
   try {
     // Don't delete default profile picture
-    if (profilePicturePath && !profilePicturePath.includes('default-profile-pic.jpg')) {
+    if (
+      profilePicturePath &&
+      !profilePicturePath.includes("default-profile-pic.jpg")
+    ) {
       // Remove leading slash if present
-      const cleanPath = profilePicturePath.startsWith('/') ? profilePicturePath.slice(1) : profilePicturePath;
-      const fullPath = path.join(__dirname, '..', cleanPath);
+      const cleanPath = profilePicturePath.startsWith("/")
+        ? profilePicturePath.slice(1)
+        : profilePicturePath;
+      const fullPath = path.join(__dirname, "..", cleanPath);
 
       // Check if file exists and delete it
       if (fs.existsSync(fullPath)) {
@@ -205,7 +210,10 @@ exports.deleteProfilePicture = async (userId, profilePicturePath) => {
       }
     }
   } catch (err) {
-    console.error(`Error deleting profile picture for user ${userId}:`, err.message);
+    console.error(
+      `Error deleting profile picture for user ${userId}:`,
+      err.message
+    );
   }
 };
 
@@ -251,7 +259,7 @@ exports.login = async (req, res, next) => {
         _id: user._id,
         username: user.username,
         email: user.email,
-        is_admin: user.is_admin
+        is_admin: user.is_admin,
       },
       accessToken,
     });
@@ -267,9 +275,9 @@ exports.profile = async (req, res, next) => {
 
     // GET - Fetch profile
     if (req.method === "GET") {
-      const user = await User.findById(userId).select(
-        "-password -resetOTP -resetOTPExp"
-      ).populate("current_subscription");
+      const user = await User.findById(userId)
+        .select("-password -resetOTP -resetOTPExp")
+        .populate("current_subscription");
       if (!user) {
         return error(res, 404, "User not found");
       }
@@ -324,7 +332,10 @@ exports.profile = async (req, res, next) => {
         profileUpdated = true;
 
         // Delete old profile picture if it's not the default
-        if (oldPicturePath && !oldPicturePath.includes('default-profile-pic.jpg')) {
+        if (
+          oldPicturePath &&
+          !oldPicturePath.includes("default-profile-pic.jpg")
+        ) {
           await exports.deleteProfilePicture(userId, oldPicturePath);
         }
       }
@@ -408,15 +419,12 @@ exports.forgotPassword = async (req, res, next) => {
     const email = String(req.body.email || "")
       .trim()
       .toLowerCase();
+
     const user = await User.findOne({ email });
 
-    // Always respond success (no enumeration)
+    // Only send OTP if user exists (proper security approach)
     if (!user) {
-      return success(
-        res,
-        200,
-        "If that email exists, you will receive a reset code"
-      );
+      return error(res, 404, "No account found with this email address");
     }
 
     const otp = generateOtp();
@@ -432,13 +440,13 @@ exports.forgotPassword = async (req, res, next) => {
     await sendEmail(
       user.email,
       "SelfTalk Password Reset Code",
-      `Hi,\n\nWe received a request to reset your password. Your code is:\n\n${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn’t request this, you can ignore this email.\n\n— The SelfTalk Team`
+      `Hi,\n\nWe received a request to reset your password. Your code is:\n\n${otp}\n\nThis code expires in 10 minutes.\n\nIf you didn't request this, you can ignore this email.\n\n— The SelfTalk Team`
     );
 
     return success(
       res,
       200,
-      "If that email exists, you will receive a reset code"
+      "Password reset code sent to your email"
     );
   } catch (err) {
     next(err);
@@ -495,19 +503,7 @@ exports.verifyResetOtp = async (req, res, next) => {
 // =================== RESET PASSWORD ===================
 exports.resetPassword = async (req, res, next) => {
   try {
-    const { resetToken, newPassword, confirmNewPassword } = req.body;
-
-    if (!resetToken || !newPassword || !confirmNewPassword) {
-      return error(
-        res,
-        400,
-        "Reset token, new password and confirm password are required"
-      );
-    }
-
-    if (newPassword !== confirmNewPassword) {
-      return error(res, 400, "Passwords do not match");
-    }
+    const { resetToken, newPassword } = req.body;
 
     let payload;
     try {
