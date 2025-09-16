@@ -150,41 +150,6 @@ exports.uploadProfilePicture = async (req, res, next) => {
   }
 };
 
-// =================== UPLOAD PROFILE PICTURE (AUTHENTICATED) ===================
-// exports.uploadProfilePicture = async (req, res, next) => {
-//   try {
-//     const userId = req.user.uid;
-
-//     if (!req.file) {
-//       return error(res, 400, "Profile picture upload failed", {
-//         profilePicture: "No file was uploaded",
-//       });
-//     }
-
-//     // Find the user
-//     const user = await User.findById(userId);
-//     if (!user) {
-//       return error(res, 404, "User not found");
-//     }
-
-//     // Update profile picture path
-//     const oldPicturePath = user.profilePicture;
-//     const profilePicturePath = `/uploads/profile_pics/${req.file.filename}`;
-//     user.profilePicture = profilePicturePath;
-//     await user.save();
-
-//     // Delete old profile picture if it exists and is not empty
-//     if (oldPicturePath && oldPicturePath.trim() !== "") {
-//       await exports.deleteProfilePicture(userId, oldPicturePath);
-//     }
-
-//     return success(res, 200, "Profile picture uploaded successfully", {
-//       profilePicture: profilePicturePath,
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
 
 // =================== DELETE PROFILE PICTURE ===================
 exports.deleteProfilePicture = async (userId, profilePicturePath) => {

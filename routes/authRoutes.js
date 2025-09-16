@@ -9,7 +9,6 @@ const {
   profile,
   changePassword,
   uploadProfilePicture,
-  uploadProfilePicturePublic,
   deleteUser,
 } = require("../controllers/authController");
 const { requireAuth } = require("../middlewares/authMiddleware");
@@ -39,7 +38,6 @@ router.post(
   upload.single("profilePicture"),
   uploadProfilePicture
 );
-// router.post("/upload-profile-picture", requireAuth, upload.single("profilePicture"), uploadProfilePicture);
 router.post("/login", loginValidation, validate, login);
 
 router.get("/profile", requireAuth, profile);

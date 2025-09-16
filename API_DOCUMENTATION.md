@@ -44,7 +44,7 @@ Admin endpoints additionally require the user to have `is_admin: true` in their 
 For mobile applications, the recommended registration flow is:
 
 1. **Upload Profile Picture** (Optional):
-   - `POST /auth/upload-profile-picture-public`
+   - `POST /auth/upload-profile-picture`
    - Returns profile picture path
 
 2. **Register User**:
@@ -371,62 +371,15 @@ Content-Type: application/json
 }
 ```
 
-### 9. Upload Profile Picture (Public - For Registration)
-
-**POST** `/auth/upload-profile-picture-public`
-
-**NEW ENDPOINT** - Upload a profile picture before registration (public endpoint). This returns a file path that can be used during registration.
-
-**Headers:**
-
-```
-Content-Type: multipart/form-data
-```
-
-**Body (Form Data):**
-
-```
-profilePicture: file (required) - Image file (JPEG, JPG, PNG, GIF)
-```
-
-**File Constraints:**
-- Maximum size: 10MB
-- Allowed formats: JPEG, JPG, PNG, GIF
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Profile picture uploaded successfully",
-  "data": {
-    "profilePicture": "/uploads/profile_pics/1758025642086.jpg"
-  }
-}
-```
-
-**Error Response:**
-
-```json
-{
-  "success": false,
-  "message": "Profile picture upload failed",
-  "errors": {
-    "profilePicture": "No file was uploaded"
-  }
-}
-```
-
-### 10. Upload Profile Picture (Authenticated)
+### 9. Upload Profile Picture
 
 **POST** `/auth/upload-profile-picture`
 
-Upload a profile picture for an existing user. Automatically updates the user's profile and deletes the old picture.
+Upload a profile picture (public endpoint for registration workflow). This returns a file path that can be used during registration or by the frontend to display the uploaded image.
 
 **Headers:**
 
 ```
-Authorization: Bearer <access_token>
 Content-Type: multipart/form-data
 ```
 
@@ -439,7 +392,7 @@ profilePicture: file (required) - Image file (JPEG, JPG, PNG, GIF)
 **File Constraints:**
 - Maximum size: 10MB
 - Allowed formats: JPEG, JPG, PNG, GIF
-- Automatically deletes old profile picture if exists
+- Automatically creates upload directory if it doesn't exist
 
 **Response:**
 
@@ -464,6 +417,8 @@ profilePicture: file (required) - Image file (JPEG, JPG, PNG, GIF)
   }
 }
 ```
+
+**Note**: For existing users who want to update their profile picture, use the `PUT /auth/profile` endpoint with multipart form data instead.
 
 ### 11. Delete User Account
 
