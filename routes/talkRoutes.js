@@ -47,7 +47,5 @@ router.delete(
   ctrl.deleteConversation
 );
 
-// Dev-only: seed fake conversations (disabled in production)
-router.post("/conversations/dev-seed", ctrl.devSeedConversations);
 
 module.exports = router;

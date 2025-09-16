@@ -21,7 +21,7 @@ const UserSchema = new mongoose.Schema(
     },
     profilePicture: {
       type: String, // URL of the profile picture
-      default: "uploads/profile_pics/default-profile-pic.jpg",
+      default: "",
     },
     resetOTP: {
       type: String,

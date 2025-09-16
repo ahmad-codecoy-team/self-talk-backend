@@ -56,6 +56,22 @@ const registerValidation = [
     .bail()
     .matches(/^(?=.*[A-Za-z])(?=.*\d)/)
     .withMessage("Password must contain at least one letter and one number"),
+
+  body("profilePicture")
+    .optional()
+    .custom(notArray)
+    .withMessage("Profile picture path must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Profile picture path must be a string")
+    .bail()
+    .trim()
+    .custom((value) => {
+      if (value && !value.startsWith("/uploads/profile_pics/")) {
+        throw new Error("Invalid profile picture path");
+      }
+      return true;
+    }),
 ];
 
 const loginValidation = [
@@ -158,8 +174,11 @@ const resetPasswordValidation = [
     .custom(isPlainString)
     .withMessage("New password must be a string")
     .bail()
-    .isLength({ min: 6 })
-    .withMessage("Password must be at least 6 characters"),
+    .isLength({ min: 6, max: 128 })
+    .withMessage("Password must be at least 6 characters long")
+    .bail()
+    .matches(/^(?=.*[A-Za-z])(?=.*\d)/)
+    .withMessage("Password must contain at least one letter and one number"),
 
   body("confirmNewPassword")
     .exists({ checkFalsy: true })
@@ -221,8 +240,11 @@ const changePasswordValidation = [
     .custom(isPlainString)
     .withMessage("New password must be a string")
     .bail()
-    .isLength({ min: 6 })
-    .withMessage("New password must be at least 6 characters"),
+    .isLength({ min: 6, max: 128 })
+    .withMessage("Password must be at least 6 characters long")
+    .bail()
+    .matches(/^(?=.*[A-Za-z])(?=.*\d)/)
+    .withMessage("Password must contain at least one letter and one number"),
 
   body("confirmNewPassword")
     .exists({ checkFalsy: true })

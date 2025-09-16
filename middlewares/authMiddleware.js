@@ -1,6 +1,7 @@
 const { verifyAccessToken } = require("../utils/jwt");
 const { error } = require("../utils/response");
 const User = require("../models/User");
+const { isTokenBlacklisted } = require("../utils/jwtBlacklist");
 
 /**
  * Reads JWT access token from Authorization header:
@@ -14,9 +15,14 @@ const requireAuth = (req, res, next) => {
     return error(res, 401, "Not authenticated");
   }
 
+  // Check if token is blacklisted
+  if (isTokenBlacklisted(token)) {
+    return error(res, 401, "Token has been invalidated");
+  }
+
   try {
     const decoded = verifyAccessToken(token);
-    req.user = { uid: decoded.uid };
+    req.user = { uid: decoded.uid, token }; // Include token for logout
     next();
   } catch (_e) {
     return error(res, 401, "Token invalid or expired");

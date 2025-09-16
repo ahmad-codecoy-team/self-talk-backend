@@ -9,6 +9,7 @@ const {
   profile,
   changePassword,
   uploadProfilePicture,
+  uploadProfilePicturePublic,
   deleteUser,
 } = require("../controllers/authController");
 const { requireAuth } = require("../middlewares/authMiddleware");
@@ -33,6 +34,7 @@ const router = express.Router();
 // =========================
 
 router.post("/register", registerValidation, validate, register);
+router.post("/upload-profile-picture-public", upload.single("profilePicture"), uploadProfilePicturePublic);
 router.post("/upload-profile-picture", requireAuth, upload.single("profilePicture"), uploadProfilePicture);
 router.post("/login", loginValidation, validate, login);
 
@@ -53,7 +55,7 @@ router.put(
   changePassword
 );
 router.delete("/delete-account", requireAuth, deleteUser);
-router.post("/logout", logout);
+router.post("/logout", requireAuth, logout);
 
 router.post(
   "/forgot-password",
@@ -71,26 +73,5 @@ router.post(
   resetPassword
 );
 
-// =========================
-// Temporary Test Route
-// =========================
-router.post("/test-get-otp", async (req, res) => {
-  try {
-    const { email } = req.body;
-    const User = require("../models/User");
-    const user = await User.findOne({ email });
-
-    if (!user || !user.resetOTP) {
-      return error(res, 404, "No OTP found for this email");
-    }
-
-    return success(res, 200, "OTP fetched successfully", {
-      otp: user.resetOTP,
-      expires: user.resetOTPExp,
-    });
-  } catch (err) {
-    return error(res, 500, "Server error", { detail: err.message });
-  }
-});
 
 module.exports = router;

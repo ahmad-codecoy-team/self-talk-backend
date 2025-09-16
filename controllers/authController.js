@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const User = require("../models/User");
 const { success, error } = require("../utils/response");
 const { sendEmail } = require("../utils/emailService");
-const { getFreePlanId } = require("../utils/seedPlans");
+const { blacklistToken } = require("../utils/jwtBlacklist");
 
 // Access token: 30 days for regular users, permanent for admins
 const ACCESS_EXPIRES = "30d";
@@ -74,11 +74,11 @@ exports.register = async (req, res, next) => {
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-    // Default profile picture
-    const profilePicture = "uploads/profile_pics/default-profile-pic.jpg";
-
-    // Get Free plan ID for default assignment
-    const freePlanId = await getFreePlanId();
+    // Handle profile picture - use provided path or empty string
+    let profilePicture = "";
+    if (req.body.profilePicture && req.body.profilePicture.trim() !== "") {
+      profilePicture = req.body.profilePicture.trim();
+    }
 
     // Create new user
     const user = await User.create({
@@ -86,8 +86,8 @@ exports.register = async (req, res, next) => {
       email: email.trim().toLowerCase(),
       password: hashedPassword,
       profilePicture,
-      current_subscription: freePlanId,
-      subscription_started_at: new Date(),
+      current_subscription: null,
+      subscription_started_at: null,
       total_minutes: 2,
       available_minutes: 2,
     });
@@ -130,7 +130,27 @@ exports.register = async (req, res, next) => {
   }
 };
 
-// =================== UPLOAD PROFILE PICTURE ===================
+// =================== UPLOAD PROFILE PICTURE (PUBLIC FOR REGISTRATION) ===================
+exports.uploadProfilePicturePublic = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return error(res, 400, "Profile picture upload failed", {
+        profilePicture: "No file was uploaded"
+      });
+    }
+
+    // Just return the file path for use during registration
+    const profilePicturePath = `/uploads/profile_pics/${req.file.filename}`;
+
+    return success(res, 200, "Profile picture uploaded successfully", {
+      profilePicture: profilePicturePath
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== UPLOAD PROFILE PICTURE (AUTHENTICATED) ===================
 exports.uploadProfilePicture = async (req, res, next) => {
   try {
     const userId = req.user.uid;
@@ -148,9 +168,15 @@ exports.uploadProfilePicture = async (req, res, next) => {
     }
 
     // Update profile picture path
+    const oldPicturePath = user.profilePicture;
     const profilePicturePath = `/uploads/profile_pics/${req.file.filename}`;
     user.profilePicture = profilePicturePath;
     await user.save();
+
+    // Delete old profile picture if it exists and is not empty
+    if (oldPicturePath && oldPicturePath.trim() !== "") {
+      await exports.deleteProfilePicture(userId, oldPicturePath);
+    }
 
     return success(res, 200, "Profile picture uploaded successfully", {
       profilePicture: profilePicturePath
@@ -359,8 +385,21 @@ exports.changePassword = async (req, res, next) => {
 };
 
 // =================== LOGOUT ===================
-exports.logout = async (_req, res) => {
-  return success(res, 200, "Logged out successfully");
+exports.logout = async (req, res, next) => {
+  try {
+    const token = req.user?.token;
+
+    if (!token) {
+      return error(res, 400, "No token provided");
+    }
+
+    // Add token to blacklist
+    blacklistToken(token);
+
+    return success(res, 200, "Logged out successfully");
+  } catch (err) {
+    next(err);
+  }
 };
 
 // =================== FORGOT PASSWORD ===================

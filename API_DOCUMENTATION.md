@@ -39,13 +39,34 @@ Admin endpoints additionally require the user to have `is_admin: true` in their 
 
 ---
 
+## Registration Workflow (Mobile Apps)
+
+For mobile applications, the recommended registration flow is:
+
+1. **Upload Profile Picture** (Optional):
+   - `POST /auth/upload-profile-picture-public`
+   - Returns profile picture path
+
+2. **Register User**:
+   - `POST /auth/register`
+   - Include profile picture path from step 1 in the JSON body
+   - If no picture uploaded, leave `profilePicture` field empty or omit it
+
+3. **Login**:
+   - `POST /auth/login`
+   - Get access token for authenticated requests
+
+This workflow ensures that profile pictures are properly handled during registration without requiring authentication for the initial upload.
+
+---
+
 ## Authentication APIs
 
 ### 1. Register User
 
 **POST** `/auth/register`
 
-Register a new user account. Now accepts JSON data instead of form data. Does not return an access token - user must login separately.
+Register a new user account. Now accepts JSON data with optional profile picture path. Does not return an access token - user must login separately.
 
 **Headers:**
 
@@ -59,7 +80,8 @@ Content-Type: application/json
 {
   "username": "testuser123",
   "email": "test@example.com",
-  "password": "password123"
+  "password": "password123",
+  "profilePicture": "/uploads/profile_pics/1758025642086.jpg"
 }
 ```
 
@@ -67,6 +89,7 @@ Content-Type: application/json
 - `username`: 3-30 characters, starts with letter, alphanumeric + dots/underscores only
 - `email`: Valid email format
 - `password`: Minimum 6 characters, must contain at least one letter and one number
+- `profilePicture`: Optional, must be a valid profile picture path starting with "/uploads/profile_pics/"
 
 **Response:**
 
@@ -79,7 +102,7 @@ Content-Type: application/json
       "_id": "68c95773929adb5dcd75feb9",
       "username": "testuser123",
       "email": "test@example.com",
-      "profilePicture": "uploads/profile_pics/default-profile-pic.jpg"
+      "profilePicture": "/uploads/profile_pics/1758025642086.jpg"
     }
   }
 }
@@ -250,7 +273,13 @@ Content-Type: application/json
 
 **POST** `/auth/logout`
 
-Logout user (client-side token invalidation).
+Logout user and invalidate the current access token. This endpoint requires authentication and properly invalidates the token on the server side.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
 
 **Response:**
 
@@ -258,6 +287,15 @@ Logout user (client-side token invalidation).
 {
   "success": true,
   "message": "Logged out successfully"
+}
+```
+
+**Error Response:**
+
+```json
+{
+  "success": false,
+  "message": "Token has been invalidated"
 }
 ```
 
@@ -324,16 +362,15 @@ Content-Type: application/json
 }
 ```
 
-### 9. Upload Profile Picture
+### 9. Upload Profile Picture (Public - For Registration)
 
-**POST** `/auth/upload-profile-picture`
+**POST** `/auth/upload-profile-picture-public`
 
-**NEW ENDPOINT** - Upload a profile picture separately from registration. This is the recommended approach for mobile apps.
+**NEW ENDPOINT** - Upload a profile picture before registration (public endpoint). This returns a file path that can be used during registration.
 
 **Headers:**
 
 ```
-Authorization: Bearer <access_token>
 Content-Type: multipart/form-data
 ```
 
@@ -346,7 +383,6 @@ profilePicture: file (required) - Image file (JPEG, JPG, PNG, GIF)
 **File Constraints:**
 - Maximum size: 10MB
 - Allowed formats: JPEG, JPG, PNG, GIF
-- Automatically deletes old profile picture (except default)
 
 **Response:**
 
@@ -372,7 +408,55 @@ profilePicture: file (required) - Image file (JPEG, JPG, PNG, GIF)
 }
 ```
 
-### 10. Delete User Account
+### 10. Upload Profile Picture (Authenticated)
+
+**POST** `/auth/upload-profile-picture`
+
+Upload a profile picture for an existing user. Automatically updates the user's profile and deletes the old picture.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+**Body (Form Data):**
+
+```
+profilePicture: file (required) - Image file (JPEG, JPG, PNG, GIF)
+```
+
+**File Constraints:**
+- Maximum size: 10MB
+- Allowed formats: JPEG, JPG, PNG, GIF
+- Automatically deletes old profile picture if exists
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Profile picture uploaded successfully",
+  "data": {
+    "profilePicture": "/uploads/profile_pics/1758025642086.jpg"
+  }
+}
+```
+
+**Error Response:**
+
+```json
+{
+  "success": false,
+  "message": "Profile picture upload failed",
+  "errors": {
+    "profilePicture": "No file was uploaded"
+  }
+}
+```
+
+### 11. Delete User Account
 
 **DELETE** `/auth/delete-account`
 
@@ -393,7 +477,7 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 11. Reset Password
+### 12. Reset Password
 
 **POST** `/auth/reset-password`
 
@@ -773,44 +857,11 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 21. Seed Development Conversations
-
-**POST** `/talk/conversations/dev-seed`
-
-Create fake conversations for development/testing (disabled in production).
-
-**Headers:**
-
-```
-Authorization: Bearer <access_token>
-Content-Type: application/json
-```
-
-**Body:**
-
-```json
-{
-  "count": 5
-}
-```
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Seeded conversations",
-  "data": {
-    "created": 5
-  }
-}
-```
-
 ---
 
 ## Admin APIs
 
-### 22. Create Subscription Plan (Admin Only)
+### 21. Create Subscription Plan (Admin Only)
 
 **POST** `/subscriptions/admin/plans`
 
@@ -869,7 +920,7 @@ Content-Type: application/json
 }
 ```
 
-### 23. Get All Plans (Admin Only)
+### 22. Get All Plans (Admin Only)
 
 **GET** `/subscriptions/admin/plans?status=Active`
 
@@ -897,7 +948,7 @@ Authorization: Bearer <admin_access_token>
 }
 ```
 
-### 24. Get Plan by ID (Admin Only)
+### 23. Get Plan by ID (Admin Only)
 
 **GET** `/subscriptions/admin/plans/{plan_id}`
 
@@ -921,7 +972,7 @@ Authorization: Bearer <admin_access_token>
 }
 ```
 
-### 25. Update Plan (Admin Only)
+### 24. Update Plan (Admin Only)
 
 **PUT** `/subscriptions/admin/plans/{plan_id}`
 
@@ -960,7 +1011,7 @@ Content-Type: application/json
 }
 ```
 
-### 26. Delete Plan (Admin Only)
+### 25. Delete Plan (Admin Only)
 
 **DELETE** `/subscriptions/admin/plans/{plan_id}`
 
