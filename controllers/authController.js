@@ -45,55 +45,37 @@ function constantTimeEq(a, b) {
 // =================== REGISTER ===================
 exports.register = async (req, res, next) => {
   try {
+    // Ensure req.body exists
+    if (!req.body) {
+      return error(res, 400, "Request body is required", {
+        general: "No data provided in request body"
+      });
+    }
+
     const { username, email, password } = req.body;
 
-    // Comprehensive validation
-    const validationErrors = {};
-
-    // Required field validation
-    if (!username || username.trim() === "") {
-      validationErrors.username = "Username is required";
-    } else if (username.length < 3 || username.length > 30) {
-      validationErrors.username = "Username must be 3-30 characters long";
-    } else if (!/^[A-Za-z][A-Za-z0-9._]*$/.test(username)) {
-      validationErrors.username =
-        "Username must start with a letter and may contain letters, numbers, underscores, or dots";
-    }
-
-    if (!email || email.trim() === "") {
-      validationErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      validationErrors.email = "Valid email is required";
-    }
-
-    if (!password || password.trim() === "") {
-      validationErrors.password = "Password is required";
-    } else if (password.length < 6) {
-      validationErrors.password = "Password must be at least 6 characters";
-    }
-
-    // Return validation errors if any
-    if (Object.keys(validationErrors).length > 0) {
-      return error(res, 400, "Validation failed", validationErrors);
-    }
-
-    // Check if email or username already exists
+    // Check if email or username already exists (detailed error messages)
     const existingEmail = await User.findOne({
       email: email.trim().toLowerCase(),
     });
-    if (existingEmail) return error(res, 409, "Email already in use");
+    if (existingEmail) {
+      return error(res, 409, "Registration failed", {
+        email: "An account with this email already exists"
+      });
+    }
 
     const existingUsername = await User.findOne({ username: username.trim() });
-    if (existingUsername) return error(res, 409, "Username already taken");
+    if (existingUsername) {
+      return error(res, 409, "Registration failed", {
+        username: "This username is already taken"
+      });
+    }
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-    // Handle file upload (if profile picture exists, use that)
-    let profilePicture = "uploads/profile_pics/default-profile-pic.jpg";
-    if (req.file) {
-      profilePicture = `/uploads/profile_pics/${req.file.filename}`;
-    }
+    // Default profile picture
+    const profilePicture = "uploads/profile_pics/default-profile-pic.jpg";
 
     // Get Free plan ID for default assignment
     const freePlanId = await getFreePlanId();
@@ -110,7 +92,7 @@ exports.register = async (req, res, next) => {
       available_minutes: 2,
     });
 
-    return success(res, 201, "Registered successfully", {
+    return success(res, 201, "User registered successfully", {
       user: {
         _id: user._id,
         username: user.username,
@@ -118,6 +100,107 @@ exports.register = async (req, res, next) => {
         profilePicture: user.profilePicture,
       },
     });
+  } catch (err) {
+    // Handle MongoDB duplicate key errors
+    if (err.code === 11000) {
+      const field = Object.keys(err.keyValue)[0];
+      const value = err.keyValue[field];
+
+      if (field === 'email') {
+        return error(res, 409, "Registration failed", {
+          email: "An account with this email already exists"
+        });
+      } else if (field === 'username') {
+        return error(res, 409, "Registration failed", {
+          username: "This username is already taken"
+        });
+      }
+    }
+
+    // Handle validation errors from MongoDB
+    if (err.name === 'ValidationError') {
+      const validationErrors = {};
+      Object.keys(err.errors).forEach((field) => {
+        validationErrors[field] = err.errors[field].message;
+      });
+      return error(res, 400, "Validation failed", validationErrors);
+    }
+
+    next(err);
+  }
+};
+
+// =================== UPLOAD PROFILE PICTURE ===================
+exports.uploadProfilePicture = async (req, res, next) => {
+  try {
+    const userId = req.user.uid;
+
+    if (!req.file) {
+      return error(res, 400, "Profile picture upload failed", {
+        profilePicture: "No file was uploaded"
+      });
+    }
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return error(res, 404, "User not found");
+    }
+
+    // Update profile picture path
+    const profilePicturePath = `/uploads/profile_pics/${req.file.filename}`;
+    user.profilePicture = profilePicturePath;
+    await user.save();
+
+    return success(res, 200, "Profile picture uploaded successfully", {
+      profilePicture: profilePicturePath
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== DELETE PROFILE PICTURE ===================
+exports.deleteProfilePicture = async (userId, profilePicturePath) => {
+  const fs = require('fs');
+  const path = require('path');
+
+  try {
+    // Don't delete default profile picture
+    if (profilePicturePath && !profilePicturePath.includes('default-profile-pic.jpg')) {
+      // Remove leading slash if present
+      const cleanPath = profilePicturePath.startsWith('/') ? profilePicturePath.slice(1) : profilePicturePath;
+      const fullPath = path.join(__dirname, '..', cleanPath);
+
+      // Check if file exists and delete it
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+        console.log(`Deleted profile picture: ${fullPath}`);
+      }
+    }
+  } catch (err) {
+    console.error(`Error deleting profile picture for user ${userId}:`, err.message);
+  }
+};
+
+// =================== DELETE USER ACCOUNT ===================
+exports.deleteUser = async (req, res, next) => {
+  try {
+    const userId = req.user.uid;
+
+    // Find user to get profile picture path before deletion
+    const user = await User.findById(userId);
+    if (!user) {
+      return error(res, 404, "User not found");
+    }
+
+    // Delete profile picture if it's not the default one
+    await exports.deleteProfilePicture(userId, user.profilePicture);
+
+    // Delete user account
+    await User.findByIdAndDelete(userId);
+
+    return success(res, 200, "Account deleted successfully");
   } catch (err) {
     next(err);
   }
@@ -210,8 +293,14 @@ exports.profile = async (req, res, next) => {
 
       // Handle profile picture upload
       if (req.file) {
+        const oldPicturePath = user.profilePicture;
         user.profilePicture = `/uploads/profile_pics/${req.file.filename}`;
         profileUpdated = true;
+
+        // Delete old profile picture if it's not the default
+        if (oldPicturePath && !oldPicturePath.includes('default-profile-pic.jpg')) {
+          await exports.deleteProfilePicture(userId, oldPicturePath);
+        }
       }
 
       // Save only if something was actually updated

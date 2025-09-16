@@ -21,6 +21,7 @@ Authorization: Bearer <access_token>
 Admin endpoints additionally require the user to have `is_admin: true` in their profile.
 
 ### Authentication Features
+
 - **Regular users**: Access tokens expire in 30 days
 - **Admin users**: Access tokens never expire (permanent access)
 - **Registration**: Only returns user data (no token)
@@ -31,6 +32,7 @@ Admin endpoints additionally require the user to have `is_admin: true` in their 
 ## User Schema Changes
 
 ### Voice & Model IDs
+
 - Users have single `voice_id` and `model_id` (not arrays)
 - Free users can upload voice once and replace it
 - Voice training uses default settings (managed by frontend)
@@ -43,33 +45,56 @@ Admin endpoints additionally require the user to have `is_admin: true` in their 
 
 **POST** `/auth/register`
 
-Register a new user account. Does not return an access token - user must login separately.
+Register a new user account. Now accepts JSON data instead of form data. Does not return an access token - user must login separately.
 
 **Headers:**
+
 ```
-Content-Type: multipart/form-data
+Content-Type: application/json
 ```
 
-**Body (Form Data):**
+**Body (JSON):**
+
+```json
+{
+  "username": "testuser123",
+  "email": "test@example.com",
+  "password": "password123"
+}
 ```
-username: string (required) - 3-30 chars, starts with letter
-email: string (required) - valid email
-password: string (required) - min 6 chars
-profilePicture: file (optional) - image file
-```
+
+**Validation Rules:**
+- `username`: 3-30 characters, starts with letter, alphanumeric + dots/underscores only
+- `email`: Valid email format
+- `password`: Minimum 6 characters, must contain at least one letter and one number
 
 **Response:**
+
 ```json
 {
   "success": true,
-  "message": "Registered successfully",
+  "message": "User registered successfully",
   "data": {
     "user": {
-      "_id": "user_id",
-      "username": "john_doe",
-      "email": "john@example.com",
-      "profilePicture": "/uploads/profile_pics/filename.jpg"
+      "_id": "68c95773929adb5dcd75feb9",
+      "username": "testuser123",
+      "email": "test@example.com",
+      "profilePicture": "uploads/profile_pics/default-profile-pic.jpg"
     }
+  }
+}
+```
+
+**Error Response Example:**
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "username": "Username must be between 3 and 30 characters",
+    "email": "Please provide a valid email address (e.g., user@example.com)",
+    "password": "Password must contain at least one letter and one number"
   }
 }
 ```
@@ -81,11 +106,13 @@ profilePicture: file (optional) - image file
 Authenticate user and receive access token.
 
 **Headers:**
+
 ```
 Content-Type: application/json
 ```
 
 **Body:**
+
 ```json
 {
   "email": "john@example.com",
@@ -94,6 +121,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -117,11 +145,13 @@ Content-Type: application/json
 Get current user's profile information.
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -150,21 +180,24 @@ Authorization: Bearer <access_token>
 
 **PUT** `/auth/profile`
 
-Update user profile (username and/or profile picture).
+Update user profile (username and/or profile picture). Profile picture updates now automatically delete the old picture.
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 Content-Type: multipart/form-data
 ```
 
 **Body (Form Data):**
+
 ```
 username: string (optional)
 profilePicture: file (optional)
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -188,12 +221,14 @@ profilePicture: file (optional)
 Change user's password (requires current password).
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
 **Body:**
+
 ```json
 {
   "oldPassword": "current_password",
@@ -203,6 +238,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -217,6 +253,7 @@ Content-Type: application/json
 Logout user (client-side token invalidation).
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -231,11 +268,13 @@ Logout user (client-side token invalidation).
 Send password reset OTP to user's email.
 
 **Headers:**
+
 ```
 Content-Type: application/json
 ```
 
 **Body:**
+
 ```json
 {
   "email": "john@example.com"
@@ -243,6 +282,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -257,11 +297,13 @@ Content-Type: application/json
 Verify the OTP sent to email and get reset token.
 
 **Headers:**
+
 ```
 Content-Type: application/json
 ```
 
 **Body:**
+
 ```json
 {
   "email": "john@example.com",
@@ -270,6 +312,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -281,18 +324,89 @@ Content-Type: application/json
 }
 ```
 
-### 9. Reset Password
+### 9. Upload Profile Picture
+
+**POST** `/auth/upload-profile-picture`
+
+**NEW ENDPOINT** - Upload a profile picture separately from registration. This is the recommended approach for mobile apps.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+```
+
+**Body (Form Data):**
+
+```
+profilePicture: file (required) - Image file (JPEG, JPG, PNG, GIF)
+```
+
+**File Constraints:**
+- Maximum size: 10MB
+- Allowed formats: JPEG, JPG, PNG, GIF
+- Automatically deletes old profile picture (except default)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Profile picture uploaded successfully",
+  "data": {
+    "profilePicture": "/uploads/profile_pics/1758025642086.jpg"
+  }
+}
+```
+
+**Error Response:**
+
+```json
+{
+  "success": false,
+  "message": "Profile picture upload failed",
+  "errors": {
+    "profilePicture": "No file was uploaded"
+  }
+}
+```
+
+### 10. Delete User Account
+
+**DELETE** `/auth/delete-account`
+
+**NEW ENDPOINT** - Delete user account and associated profile picture.
+
+**Headers:**
+
+```
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Account deleted successfully"
+}
+```
+
+### 11. Reset Password
 
 **POST** `/auth/reset-password`
 
 Reset password using reset token from OTP verification.
 
 **Headers:**
+
 ```
 Content-Type: application/json
 ```
 
 **Body:**
+
 ```json
 {
   "resetToken": "eyJhbGciOiJIUzI1NiIs...",
@@ -302,6 +416,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -313,7 +428,7 @@ Content-Type: application/json
 
 ## Subscription Management APIs
 
-### 10. Get All Active Plans (Public)
+### 12. Get All Active Plans (Public)
 
 **GET** `/subscriptions/plans`
 
@@ -322,6 +437,7 @@ Get all active subscription plans available for users to subscribe to.
 **Headers:** None required
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -351,18 +467,20 @@ Get all active subscription plans available for users to subscribe to.
 }
 ```
 
-### 11. Get User's Current Subscription
+### 13. Get User's Current Subscription
 
 **GET** `/subscriptions/my-subscription`
 
 Get the current user's subscription details including voice/model settings and available minutes.
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -386,19 +504,21 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 12. Update Voice and Model Settings
+### 14. Update Voice and Model Settings
 
 **PUT** `/subscriptions/voice-model`
 
 Update the user's voice_id and model_id settings.
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
 **Body:**
+
 ```json
 {
   "voice_id": "new_voice_123",
@@ -407,6 +527,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -418,19 +539,21 @@ Content-Type: application/json
 }
 ```
 
-### 13. Subscribe to a Plan
+### 15. Subscribe to a Plan
 
 **POST** `/subscriptions/subscribe`
 
 Subscribe the user to a specific plan. This will add the plan's minutes to the user's account.
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
 **Body:**
+
 ```json
 {
   "plan_id": "plan_object_id"
@@ -438,6 +561,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -458,19 +582,21 @@ Content-Type: application/json
 }
 ```
 
-### 14. Add Minutes to Account
+### 16. Add Minutes to Account
 
 **POST** `/subscriptions/add-minutes`
 
 Add additional minutes to the user's account (for separate minute purchases).
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
 **Body:**
+
 ```json
 {
   "minutes": 25
@@ -478,6 +604,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -494,19 +621,21 @@ Content-Type: application/json
 
 ## Conversation APIs
 
-### 15. Create Conversation
+### 17. Create Conversation
 
 **POST** `/talk/conversations`
 
 Create a new conversation with messages.
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
 **Body:**
+
 ```json
 {
   "messages": [
@@ -528,6 +657,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -538,22 +668,25 @@ Content-Type: application/json
 }
 ```
 
-### 16. List User Conversations
+### 18. List User Conversations
 
 **GET** `/talk/conversations?page=1&limit=20`
 
 Get paginated list of user's conversations.
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 ```
 
 **Query Parameters:**
+
 - `page` (optional): Page number (default: 1)
 - `limit` (optional): Items per page (default: 20)
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -578,18 +711,20 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 17. Get Conversation Details
+### 19. Get Conversation Details
 
 **GET** `/talk/conversations/{conversation_id}`
 
 Get a specific conversation with full transcript.
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -617,18 +752,20 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 18. Delete Conversation
+### 20. Delete Conversation
 
 **DELETE** `/talk/conversations/{conversation_id}`
 
 Delete a specific conversation and all its messages.
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -636,19 +773,21 @@ Authorization: Bearer <access_token>
 }
 ```
 
-### 19. Seed Development Conversations
+### 21. Seed Development Conversations
 
 **POST** `/talk/conversations/dev-seed`
 
 Create fake conversations for development/testing (disabled in production).
 
 **Headers:**
+
 ```
 Authorization: Bearer <access_token>
 Content-Type: application/json
 ```
 
 **Body:**
+
 ```json
 {
   "count": 5
@@ -656,6 +795,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -670,19 +810,21 @@ Content-Type: application/json
 
 ## Admin APIs
 
-### 20. Create Subscription Plan (Admin Only)
+### 22. Create Subscription Plan (Admin Only)
 
 **POST** `/subscriptions/admin/plans`
 
 Create a new subscription plan.
 
 **Headers:**
+
 ```
 Authorization: Bearer <admin_access_token>
 Content-Type: application/json
 ```
 
 **Body:**
+
 ```json
 {
   "name": "Premium",
@@ -704,6 +846,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -726,21 +869,24 @@ Content-Type: application/json
 }
 ```
 
-### 21. Get All Plans (Admin Only)
+### 23. Get All Plans (Admin Only)
 
 **GET** `/subscriptions/admin/plans?status=Active`
 
 Get all subscription plans (with optional status filter).
 
 **Headers:**
+
 ```
 Authorization: Bearer <admin_access_token>
 ```
 
 **Query Parameters:**
+
 - `status` (optional): "Active" or "Inactive"
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -751,18 +897,20 @@ Authorization: Bearer <admin_access_token>
 }
 ```
 
-### 22. Get Plan by ID (Admin Only)
+### 24. Get Plan by ID (Admin Only)
 
 **GET** `/subscriptions/admin/plans/{plan_id}`
 
 Get a specific subscription plan by ID (needed for CRUD operations).
 
 **Headers:**
+
 ```
 Authorization: Bearer <admin_access_token>
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -773,19 +921,21 @@ Authorization: Bearer <admin_access_token>
 }
 ```
 
-### 23. Update Plan (Admin Only)
+### 25. Update Plan (Admin Only)
 
 **PUT** `/subscriptions/admin/plans/{plan_id}`
 
 Update an existing subscription plan.
 
 **Headers:**
+
 ```
 Authorization: Bearer <admin_access_token>
 Content-Type: application/json
 ```
 
 **Body:** (All fields optional)
+
 ```json
 {
   "name": "Premium Plus",
@@ -799,6 +949,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -809,18 +960,20 @@ Content-Type: application/json
 }
 ```
 
-### 24. Delete Plan (Admin Only)
+### 26. Delete Plan (Admin Only)
 
 **DELETE** `/subscriptions/admin/plans/{plan_id}`
 
 Delete a subscription plan (only if no users are currently subscribed to it).
 
 **Headers:**
+
 ```
 Authorization: Bearer <admin_access_token>
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -844,14 +997,53 @@ All endpoints return errors in this format:
 }
 ```
 
-Common HTTP status codes:
+**Enhanced Error Handling:**
+- Detailed validation messages for all fields
+- Specific error codes for different scenarios
+- User-friendly error messages
+- Proper HTTP status codes
 
-- `400` - Bad Request (validation errors)
-- `401` - Unauthorized (missing/invalid token)
+**Common HTTP status codes:**
+
+- `400` - Bad Request (validation errors, malformed data)
+- `401` - Unauthorized (missing/invalid/expired token)
 - `403` - Forbidden (admin access required)
 - `404` - Not Found
-- `409` - Conflict (duplicate names, etc.)
+- `409` - Conflict (duplicate email/username, etc.)
+- `413` - Payload Too Large (file size exceeded)
 - `500` - Internal Server Error
+
+**Example Error Responses:**
+
+```json
+// Validation Error
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "email": "Please provide a valid email address (e.g., user@example.com)",
+    "password": "Password must contain at least one letter and one number"
+  }
+}
+
+// Duplicate Registration
+{
+  "success": false,
+  "message": "Registration failed",
+  "errors": {
+    "email": "An account with this email already exists"
+  }
+}
+
+// File Upload Error
+{
+  "success": false,
+  "message": "File upload failed",
+  "errors": {
+    "profilePicture": "File size too large. Maximum allowed size is 10MB"
+  }
+}
+```
 
 ---
 
@@ -879,6 +1071,7 @@ Common HTTP status codes:
 ### Testing in Postman
 
 #### Environment Variables
+
 ```
 base_url: http://localhost:5000/api
 access_token: <user_token>
@@ -886,10 +1079,13 @@ admin_token: <admin_token>
 ```
 
 #### Sample Collection Structure
+
 ```
 📁 SelfTalk APIs
 ├── 📁 Authentication
 │   ├── POST {{base_url}}/auth/register
+│   ├── POST {{base_url}}/auth/upload-profile-picture ✨ NEW
+│   ├── DELETE {{base_url}}/auth/delete-account ✨ NEW
 │   ├── POST {{base_url}}/auth/login
 │   ├── GET {{base_url}}/auth/profile
 │   ├── PUT {{base_url}}/auth/profile
@@ -921,24 +1117,35 @@ admin_token: <admin_token>
 ### Quick Test Commands
 
 Test server connectivity:
+
 ```bash
 curl http://localhost:5000/api/subscriptions/plans
 ```
 
 Test with authentication:
+
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:5000/api/subscriptions/my-subscription
 ```
 
-Register user:
+Register user (updated to JSON):
+
 ```bash
 curl -X POST http://localhost:5000/api/auth/register \
-  -F "username=testuser" \
-  -F "email=test@example.com" \
-  -F "password=password123"
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser123","email":"test@example.com","password":"password123"}'
+```
+
+Upload profile picture:
+
+```bash
+curl -X POST http://localhost:5000/api/auth/upload-profile-picture \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "profilePicture=@/path/to/image.jpg"
 ```
 
 Login user:
+
 ```bash
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \

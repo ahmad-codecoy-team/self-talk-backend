@@ -2,6 +2,13 @@ const { validationResult } = require("express-validator");
 const { error } = require("../utils/response");
 
 const validate = (req, res, next) => {
+  // Check if req.body is undefined (middleware order issue)
+  if (!req.body) {
+    return error(res, 400, "Request body is required", {
+      general: "No data provided in request body. Ensure Content-Type is application/json"
+    });
+  }
+
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {

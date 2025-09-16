@@ -8,6 +8,8 @@ const {
   verifyResetOtp,
   profile,
   changePassword,
+  uploadProfilePicture,
+  deleteUser,
 } = require("../controllers/authController");
 const { requireAuth } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validateMiddleware");
@@ -30,7 +32,8 @@ const router = express.Router();
 // Auth Routes
 // =========================
 
-router.post("/register", upload.single("profilePicture"), register);
+router.post("/register", registerValidation, validate, register);
+router.post("/upload-profile-picture", requireAuth, upload.single("profilePicture"), uploadProfilePicture);
 router.post("/login", loginValidation, validate, login);
 
 router.get("/profile", requireAuth, profile);
@@ -49,6 +52,7 @@ router.put(
   validate,
   changePassword
 );
+router.delete("/delete-account", requireAuth, deleteUser);
 router.post("/logout", logout);
 
 router.post(

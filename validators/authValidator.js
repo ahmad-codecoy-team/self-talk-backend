@@ -8,79 +8,82 @@ const USERNAME_RE = /^[A-Za-z][A-Za-z0-9._]*$/;
 const registerValidation = [
   body("username")
     .exists({ checkFalsy: true })
-    .withMessage("Username is required")
+    .withMessage("Please provide a username")
     .bail()
     .custom(notArray)
-    .withMessage("Username must not be an array")
+    .withMessage("Username cannot be an array")
     .bail()
     .custom(isPlainString)
-    .withMessage("Username must be a string")
+    .withMessage("Username must be a text value")
     .bail()
     .trim()
     .isLength({ min: 3, max: 30 })
-    .withMessage("Username must be 3–30 characters long")
+    .withMessage("Username must be between 3 and 30 characters")
     .bail()
     .matches(USERNAME_RE)
     .withMessage(
-      "Username must start with a letter and may contain letters, numbers, underscores, or dots"
+      "Username must start with a letter and can only contain letters, numbers, periods, or underscores"
     ),
 
   body("email")
     .exists({ checkFalsy: true })
-    .withMessage("Email is required")
+    .withMessage("Please provide an email address")
     .bail()
     .custom(notArray)
-    .withMessage("Email must not be an array")
+    .withMessage("Email cannot be an array")
     .bail()
     .custom(isPlainString)
-    .withMessage("Email must be a string")
+    .withMessage("Email must be a text value")
     .bail()
     .trim()
     .isEmail()
-    .withMessage("Valid email is required")
+    .withMessage("Please provide a valid email address (e.g., user@example.com)")
     .bail()
     .normalizeEmail(),
 
   body("password")
     .exists({ checkFalsy: true })
-    .withMessage("Password is required")
+    .withMessage("Please provide a password")
     .bail()
     .custom(notArray)
-    .withMessage("Password must not be an array")
+    .withMessage("Password cannot be an array")
     .bail()
     .custom(isPlainString)
-    .withMessage("Password must be a string")
+    .withMessage("Password must be a text value")
     .bail()
-    .isLength({ min: 6 })
-    .withMessage("Password must be at least 6 characters"),
+    .isLength({ min: 6, max: 128 })
+    .withMessage("Password must be at least 6 characters long")
+    .bail()
+    .matches(/^(?=.*[A-Za-z])(?=.*\d)/)
+    .withMessage("Password must contain at least one letter and one number"),
 ];
 
 const loginValidation = [
   body("email")
     .exists({ checkFalsy: true })
-    .withMessage("Email is required")
+    .withMessage("Please enter your email address")
     .bail()
     .custom(notArray)
-    .withMessage("Email must not be an array")
+    .withMessage("Email cannot be an array")
     .bail()
     .custom(isPlainString)
-    .withMessage("Email must be a string")
+    .withMessage("Email must be a text value")
     .bail()
     .trim()
     .isEmail()
-    .withMessage("Valid email is required")
+    .withMessage("Please enter a valid email address")
     .bail()
     .normalizeEmail(),
 
   body("password")
     .exists({ checkFalsy: true })
-    .withMessage("Password is required")
+    .withMessage("Please enter your password")
     .bail()
     .custom(notArray)
-    .withMessage("Password must not be an array")
+    .withMessage("Password cannot be an array")
     .bail()
     .custom(isPlainString)
-    .withMessage("Password must be a string"),
+    .withMessage("Password must be a text value"),
 ];
 
 const forgotPasswordValidation = [
