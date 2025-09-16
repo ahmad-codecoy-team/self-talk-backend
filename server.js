@@ -7,6 +7,7 @@ const cors = require("cors");
 const path = require("path");
 const talkRoutes = require("./routes/talkRoutes");
 const authRoutes = require("./routes/authRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
 
 const app = express();
 
@@ -30,6 +31,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use("/api/auth", authRoutes);
 
 app.use("/api/talk", talkRoutes);
+
+app.use("/api/subscriptions", subscriptionRoutes);
 
 // app.use("/self-talk-backend/api/auth", authRoutes);
 // app.use("/self-talk-backend/api/talk", talkRoutes);

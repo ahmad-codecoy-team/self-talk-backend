@@ -4,8 +4,9 @@ const crypto = require("crypto");
 const User = require("../models/User");
 const { success, error } = require("../utils/response");
 const { sendEmail } = require("../utils/emailService");
+const { getFreePlanId } = require("../utils/seedPlans");
 
-// Access token: 30 days
+// Access token: 30 days for regular users, permanent for admins
 const ACCESS_EXPIRES = "30d";
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
@@ -15,8 +16,9 @@ const JWT_RESET_SECRET = process.env.JWT_RESET_SECRET || "change_me";
 const RESET_TOKEN_EXPIRES = "15m"; // 15 minutes
 
 // Helpers
-function signAccessToken(payload) {
-  return jwt.sign(payload, JWT_ACCESS_SECRET, { expiresIn: ACCESS_EXPIRES });
+function signAccessToken(payload, isAdmin = false) {
+  const options = isAdmin ? {} : { expiresIn: ACCESS_EXPIRES };
+  return jwt.sign(payload, JWT_ACCESS_SECRET, options);
 }
 
 function signResetToken(payload) {
@@ -93,16 +95,20 @@ exports.register = async (req, res, next) => {
       profilePicture = `/uploads/profile_pics/${req.file.filename}`;
     }
 
+    // Get Free plan ID for default assignment
+    const freePlanId = await getFreePlanId();
+
     // Create new user
     const user = await User.create({
       username: username.trim(),
       email: email.trim().toLowerCase(),
       password: hashedPassword,
       profilePicture,
+      current_subscription: freePlanId,
+      subscription_started_at: new Date(),
+      total_minutes: 2,
+      available_minutes: 2,
     });
-
-    // Generate access token
-    const accessToken = signAccessToken({ uid: user._id });
 
     return success(res, 201, "Registered successfully", {
       user: {
@@ -111,7 +117,6 @@ exports.register = async (req, res, next) => {
         email: user.email,
         profilePicture: user.profilePicture,
       },
-      accessToken,
     });
   } catch (err) {
     next(err);
@@ -129,10 +134,16 @@ exports.login = async (req, res, next) => {
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return error(res, 400, "Invalid credentials");
 
-    const accessToken = signAccessToken({ uid: user._id });
+    // Generate permanent token for admin, regular expiring token for users
+    const accessToken = signAccessToken({ uid: user._id }, user.is_admin);
 
     return success(res, 200, "Logged in successfully", {
-      user: { _id: user._id, username: user.username, email: user.email },
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        is_admin: user.is_admin
+      },
       accessToken,
     });
   } catch (err) {
@@ -149,7 +160,7 @@ exports.profile = async (req, res, next) => {
     if (req.method === "GET") {
       const user = await User.findById(userId).select(
         "-password -resetOTP -resetOTPExp"
-      );
+      ).populate("current_subscription");
       if (!user) {
         return error(res, 404, "User not found");
       }
@@ -160,6 +171,13 @@ exports.profile = async (req, res, next) => {
           username: user.username,
           email: user.email,
           profilePicture: user.profilePicture,
+          voice_id: user.voice_id,
+          model_id: user.model_id,
+          total_minutes: user.total_minutes,
+          available_minutes: user.available_minutes,
+          current_subscription: user.current_subscription,
+          subscription_started_at: user.subscription_started_at,
+          is_admin: user.is_admin,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         },

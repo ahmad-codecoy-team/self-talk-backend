@@ -1,5 +1,6 @@
 const { verifyAccessToken } = require("../utils/jwt");
 const { error } = require("../utils/response");
+const User = require("../models/User");
 
 /**
  * Reads JWT access token from Authorization header:
@@ -22,4 +23,26 @@ const requireAuth = (req, res, next) => {
   }
 };
 
-module.exports = { requireAuth };
+/**
+ * Middleware to check if the authenticated user is an admin
+ */
+const requireAdmin = async (req, res, next) => {
+  try {
+    const userId = req.user.uid;
+    const user = await User.findById(userId).select("is_admin");
+
+    if (!user) {
+      return error(res, 404, "User not found");
+    }
+
+    if (!user.is_admin) {
+      return error(res, 403, "Admin access required");
+    }
+
+    next();
+  } catch (err) {
+    return error(res, 500, "Server error", { detail: err.message });
+  }
+};
+
+module.exports = { requireAuth, requireAdmin };
