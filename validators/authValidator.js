@@ -162,6 +162,46 @@ const updateProfileValidation = [
     .withMessage(
       "Username must start with a letter and may contain letters, numbers, underscores, or dots"
     ),
+
+  body("profilePicture")
+    .optional({ nullable: true })
+    .custom(notArray)
+    .withMessage("Profile picture path must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Profile picture path must be a string")
+    .bail()
+    .trim()
+    .custom((value) => {
+      if (value && !value.startsWith("/uploads/profile_pics/")) {
+        throw new Error("Invalid profile picture path");
+      }
+      return true;
+    }),
+
+  body("voice_id")
+    .optional({ nullable: true })
+    .custom(notArray)
+    .withMessage("Voice ID must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Voice ID must be a string")
+    .bail()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage("Voice ID must be between 1 and 100 characters"),
+
+  body("model_id")
+    .optional({ nullable: true })
+    .custom(notArray)
+    .withMessage("Model ID must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Model ID must be a string")
+    .bail()
+    .trim()
+    .isLength({ min: 1, max: 100 })
+    .withMessage("Model ID must be between 1 and 100 characters"),
 ];
 
 // CHANGE PASSWORD VALIDATION

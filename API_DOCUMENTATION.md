@@ -203,21 +203,36 @@ Authorization: Bearer <access_token>
 
 **PUT** `/auth/profile`
 
-Update user profile (username and/or profile picture). Profile picture updates now automatically delete the old picture.
+Update user profile (username, profile picture, voice_id, and/or model_id). Profile picture updates now automatically delete the old picture. Uses the same workflow as registration - upload picture first with `/upload-profile-picture`, then include path in JSON body.
 
 **Headers:**
 
 ```
 Authorization: Bearer <access_token>
-Content-Type: multipart/form-data
+Content-Type: application/json
 ```
 
-**Body (Form Data):**
+**Body (JSON):**
 
+```json
+{
+  "username": "new_username",
+  "profilePicture": "/uploads/profile_pics/1758070839497.jpg",
+  "voice_id": "voice_123",
+  "model_id": "gpt-4"
+}
 ```
-username: string (optional)
-profilePicture: file (optional)
-```
+
+**Validation Rules:**
+- `username` (optional): 3-30 characters, starts with letter, alphanumeric + dots/underscores only
+- `profilePicture` (optional): Valid profile picture path starting with "/uploads/profile_pics/" or empty string to clear
+- `voice_id` (optional): 1-100 characters, or null to clear
+- `model_id` (optional): 1-100 characters, or null to clear
+
+**Profile Picture Workflow:**
+1. Upload picture: `POST /auth/upload-profile-picture` (multipart/form-data)
+2. Update profile: Include returned path in this endpoint's JSON body
+3. Or set to empty string to remove profile picture
 
 **Response:**
 
@@ -230,8 +245,10 @@ profilePicture: file (optional)
       "_id": "user_id",
       "username": "new_username",
       "email": "john@example.com",
-      "profilePicture": "/uploads/profile_pics/new_filename.jpg",
-      "updatedAt": "2025-09-16T07:00:00.000Z"
+      "profilePicture": "/uploads/profile_pics/1758070839497.jpg",
+      "voice_id": "voice_123",
+      "model_id": "gpt-4",
+      "updatedAt": "2025-09-17T01:00:57.517Z"
     }
   }
 }
@@ -418,7 +435,7 @@ profilePicture: file (required) - Image file (JPEG, JPG, PNG, GIF)
 }
 ```
 
-**Note**: For existing users who want to update their profile picture, use the `PUT /auth/profile` endpoint with multipart form data instead.
+**Note**: For existing users who want to update their profile picture, first upload using this endpoint, then update profile using `PUT /auth/profile` with the returned path in JSON body.
 
 ### 11. Delete User Account
 
@@ -1154,8 +1171,16 @@ Upload profile picture:
 
 ```bash
 curl -X POST http://localhost:5000/api/auth/upload-profile-picture \
-  -H "Authorization: Bearer YOUR_TOKEN" \
   -F "profilePicture=@/path/to/image.jpg"
+```
+
+Update profile with all fields:
+
+```bash
+curl -X PUT http://localhost:5000/api/auth/profile \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"newusername","voice_id":"voice123","model_id":"gpt-4","profilePicture":"/uploads/profile_pics/filename.jpg"}'
 ```
 
 Login user:

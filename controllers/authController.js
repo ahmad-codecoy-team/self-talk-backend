@@ -268,7 +268,7 @@ exports.profile = async (req, res, next) => {
 
     // PUT - Update profile
     if (req.method === "PUT") {
-      const { username } = req.body;
+      const { username, profilePicture, voice_id, model_id } = req.body;
 
       const user = await User.findById(userId);
       if (!user) {
@@ -290,19 +290,38 @@ exports.profile = async (req, res, next) => {
         profileUpdated = true;
       }
 
-      // Handle profile picture upload
-      if (req.file) {
+      // Handle profile picture update from JSON body (path from /upload-profile-picture)
+      if (profilePicture !== undefined) {
         const oldPicturePath = user.profilePicture;
-        user.profilePicture = `/uploads/profile_pics/${req.file.filename}`;
+
+        if (profilePicture && profilePicture.trim()) {
+          user.profilePicture = profilePicture.trim();
+        } else {
+          user.profilePicture = ""; // Clear profile picture
+        }
+
         profileUpdated = true;
 
-        // Delete old profile picture if it's not the default
+        // Delete old profile picture if it's not the default and different from new one
         if (
           oldPicturePath &&
+          oldPicturePath !== user.profilePicture &&
           !oldPicturePath.includes("default-profile-pic.jpg")
         ) {
           await exports.deleteProfilePicture(userId, oldPicturePath);
         }
+      }
+
+      // Handle voice_id update
+      if (voice_id !== undefined) {
+        user.voice_id = voice_id && voice_id.trim() ? voice_id.trim() : null;
+        profileUpdated = true;
+      }
+
+      // Handle model_id update
+      if (model_id !== undefined) {
+        user.model_id = model_id && model_id.trim() ? model_id.trim() : null;
+        profileUpdated = true;
       }
 
       // Save only if something was actually updated
@@ -316,6 +335,8 @@ exports.profile = async (req, res, next) => {
           username: user.username,
           email: user.email,
           profilePicture: user.profilePicture,
+          voice_id: user.voice_id,
+          model_id: user.model_id,
           updatedAt: user.updatedAt,
         },
       });

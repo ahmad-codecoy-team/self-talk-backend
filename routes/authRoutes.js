@@ -44,7 +44,6 @@ router.get("/profile", requireAuth, profile);
 router.put(
   "/profile",
   requireAuth,
-  upload.single("profilePicture"),
   updateProfileValidation,
   validate,
   profile
