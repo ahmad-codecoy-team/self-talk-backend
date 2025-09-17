@@ -184,13 +184,12 @@ Verify the OTP for password reset (deletes OTP after verification).
 ```
 
 ### POST `/api/auth/reset-password`
-Reset password using OTP (no reset token needed).
+Reset password after OTP verification (OTP is verified and invalidated in previous step).
 
 **Request Body:**
 ```json
 {
   "email": "string",
-  "otp": "string (6 digits)",
   "newPassword": "string (min 6 chars, must contain letter + number)"
 }
 ```
@@ -290,8 +289,7 @@ Change user password.
 ```json
 {
   "oldPassword": "string",
-  "newPassword": "string (min 6 chars, must contain letter + number)",
-  "confirmNewPassword": "string (must match newPassword)"
+  "newPassword": "string (min 6 chars, must contain letter + number)"
 }
 ```
 
@@ -356,10 +354,10 @@ The new OTP-based password reset flow (no reset tokens):
    - Returns OTP in response for frontend to store locally
 2. **Verify OTP**: POST `/api/auth/verify-reset-otp` with email and OTP
    - Deletes OTP after successful verification
-3. **Reset Password**: POST `/api/auth/reset-password` with email, OTP, and new password
-   - Verifies OTP again for security and deletes it
+3. **Reset Password**: POST `/api/auth/reset-password` with email and new password
+   - OTP was already verified and invalidated in previous step
 
-The frontend should store the OTP from step 1 and use it for steps 2 and 3.
+The frontend should store the OTP from step 1 and use it only for step 2.
 
 ## Role System
 
@@ -387,8 +385,13 @@ New users are automatically assigned the "user" role during registration. Defaul
 - OTP is now returned in `/forgot-password` response for frontend storage
 - No more reset tokens - direct OTP verification
 - `/verify-reset-otp` deletes OTP after verification
-- `/reset-password` requires email, OTP, and new password
+- `/reset-password` requires only email and new password (OTP already verified)
 - Enhanced validation with proper error messages
+
+### Updated Change Password:
+- Removed `confirmNewPassword` field requirement
+- Frontend should handle password confirmation validation
+- Simplified API to require only `oldPassword` and `newPassword`
 
 ### Database Schema Changes:
 - User schema now uses Role reference instead of `is_admin` boolean

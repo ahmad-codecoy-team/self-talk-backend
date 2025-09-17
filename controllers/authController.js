@@ -387,10 +387,10 @@ exports.verifyResetOtp = async (req, res, next) => {
 // =================== RESET PASSWORD ===================
 exports.resetPassword = async (req, res, next) => {
   try {
-    const { email, newPassword, otp } = req.body;
+    const { email, newPassword } = req.body;
 
-    if (!email || !newPassword || !otp) {
-      return error(res, 400, "Email, OTP, and new password are required");
+    if (!email || !newPassword) {
+      return error(res, 400, "Email and new password are required");
     }
 
     const emailNormalized = email.trim().toLowerCase();
@@ -400,34 +400,9 @@ exports.resetPassword = async (req, res, next) => {
       return error(res, 400, "User not found");
     }
 
-    // Find and verify OTP one more time for security
-    const otpRecord = await OTP.findOne({
-      email: emailNormalized,
-      purpose: "password_reset"
-    });
-
-    if (!otpRecord) {
-      return error(res, 400, "Invalid or expired OTP. Please request a new reset code.");
-    }
-
-    // Check if OTP is expired
-    if (otpRecord.expiresAt.getTime() < Date.now()) {
-      await OTP.deleteOne({ _id: otpRecord._id });
-      return error(res, 400, "OTP has expired. Please request a new reset code.");
-    }
-
-    // Verify OTP
-    const providedHash = hashOtp(otp.trim());
-    if (!constantTimeEq(providedHash, otpRecord.otp)) {
-      return error(res, 400, "Invalid OTP. Please check and try again.");
-    }
-
     // Hash and save new password
     user.password = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
     await user.save();
-
-    // Delete the OTP record after successful password reset
-    await OTP.deleteOne({ _id: otpRecord._id });
 
     return success(res, 200, "Password updated successfully");
   } catch (err) {

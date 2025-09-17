@@ -128,12 +128,8 @@ exports.updateProfile = async (req, res, next) => {
 // =================== CHANGE PASSWORD ===================
 exports.changePassword = async (req, res, next) => {
   try {
-    const { oldPassword, newPassword, confirmNewPassword } = req.body;
+    const { oldPassword, newPassword } = req.body;
     const userId = req.user.uid;
-
-    if (newPassword !== confirmNewPassword) {
-      return error(res, 400, "New passwords do not match");
-    }
 
     const user = await User.findById(userId);
     if (!user) {

@@ -115,22 +115,9 @@ const verifyOtpValidation = [
     .withMessage("OTP must be exactly 6 digits"),
 ];
 
-// UPDATED: for POST /reset-password (email, otp, and newPassword required)
+// UPDATED: for POST /reset-password (email and newPassword required - OTP already verified)
 const resetPasswordValidation = [
   ...standardEmailValidation(),
-
-  body("otp")
-    .exists({ checkFalsy: true })
-    .withMessage("OTP is required")
-    .bail()
-    .custom(notArray)
-    .withMessage("OTP must not be an array")
-    .bail()
-    .custom(isPlainString)
-    .withMessage("OTP must be a string")
-    .bail()
-    .matches(/^\d{6}$/)
-    .withMessage("OTP must be exactly 6 digits"),
 
   body("newPassword")
     .exists({ checkFalsy: true })
@@ -236,23 +223,6 @@ const changePasswordValidation = [
     .bail()
     .matches(/^(?=.*[A-Za-z])(?=.*\d)/)
     .withMessage("Password must contain at least one letter and one number"),
-
-  body("confirmNewPassword")
-    .exists({ checkFalsy: true })
-    .withMessage("Confirm new password is required")
-    .bail()
-    .custom(notArray)
-    .withMessage("Confirm new password must not be an array")
-    .bail()
-    .custom(isPlainString)
-    .withMessage("Confirm new password must be a string")
-    .bail()
-    .custom((value, { req }) => {
-      if (value !== req.body.newPassword) {
-        throw new Error("New passwords do not match");
-      }
-      return true;
-    }),
 ];
 
 module.exports = {
