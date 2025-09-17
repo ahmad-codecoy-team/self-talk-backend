@@ -115,17 +115,22 @@ const verifyOtpValidation = [
     .withMessage("OTP must be exactly 6 digits"),
 ];
 
-// UPDATED: for POST /reset-password (only resetToken and newPassword required)
+// UPDATED: for POST /reset-password (email, otp, and newPassword required)
 const resetPasswordValidation = [
-  body("resetToken")
+  ...standardEmailValidation(),
+
+  body("otp")
     .exists({ checkFalsy: true })
-    .withMessage("Reset token is required")
+    .withMessage("OTP is required")
     .bail()
     .custom(notArray)
-    .withMessage("Reset token must not be an array")
+    .withMessage("OTP must not be an array")
     .bail()
     .custom(isPlainString)
-    .withMessage("Reset token must be a string"),
+    .withMessage("OTP must be a string")
+    .bail()
+    .matches(/^\d{6}$/)
+    .withMessage("OTP must be exactly 6 digits"),
 
   body("newPassword")
     .exists({ checkFalsy: true })

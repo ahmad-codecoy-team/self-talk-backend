@@ -7,6 +7,7 @@ const cors = require("cors");
 const path = require("path");
 const talkRoutes = require("./routes/talkRoutes");
 const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 
 const app = express();
@@ -25,17 +26,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files (profile pictures)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // routes
 app.use("/api/auth", authRoutes);
-
+app.use("/api/user", userRoutes);
 app.use("/api/talk", talkRoutes);
-
 app.use("/api/subscriptions", subscriptionRoutes);
-
-// app.use("/self-talk-backend/api/auth", authRoutes);
-// app.use("/self-talk-backend/api/talk", talkRoutes);
 
 // error handler (last)
 app.use(errorHandler);

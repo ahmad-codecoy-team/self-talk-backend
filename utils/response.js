@@ -1,6 +1,7 @@
 exports.success = (res, statusCode, message, data) => {
   const response = {
     success: true,
+    statusCode,
     message,
   };
 
@@ -14,6 +15,7 @@ exports.success = (res, statusCode, message, data) => {
 exports.error = (res, statusCode, message, errors) => {
   const response = {
     success: false,
+    statusCode,
     message,
   };
 

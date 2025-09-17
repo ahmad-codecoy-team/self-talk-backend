@@ -23,14 +23,6 @@ const UserSchema = new mongoose.Schema(
       type: String, // URL of the profile picture
       default: "",
     },
-    resetOTP: {
-      type: String,
-      default: null,
-    },
-    resetOTPExp: {
-      type: Date,
-      default: null,
-    },
     voice_id: {
       type: String,
       default: null,
@@ -58,9 +50,10 @@ const UserSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    is_admin: {
-      type: Boolean,
-      default: false,
+    role: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Role",
+      required: true,
     },
   },
   { timestamps: true }
