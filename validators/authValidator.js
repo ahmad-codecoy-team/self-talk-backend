@@ -57,10 +57,7 @@ const registerValidation = [
     .withMessage("Password must be a text value")
     .bail()
     .isLength({ min: 6, max: 128 })
-    .withMessage("Password must be at least 6 characters long")
-    .bail()
-    .matches(/^(?=.*[A-Za-z])(?=.*\d)/)
-    .withMessage("Password must contain at least one letter and one number"),
+    .withMessage("Password must be at least 6 characters long"),
 
   body("profilePicture")
     .optional()
@@ -130,10 +127,7 @@ const resetPasswordValidation = [
     .withMessage("New password must be a string")
     .bail()
     .isLength({ min: 6, max: 128 })
-    .withMessage("Password must be at least 6 characters long")
-    .bail()
-    .matches(/^(?=.*[A-Za-z])(?=.*\d)/)
-    .withMessage("Password must contain at least one letter and one number"),
+    .withMessage("Password must be at least 6 characters long"),
 ];
 
 // UPDATE PROFILE VALIDATION
@@ -219,10 +213,7 @@ const changePasswordValidation = [
     .withMessage("New password must be a string")
     .bail()
     .isLength({ min: 6, max: 128 })
-    .withMessage("Password must be at least 6 characters long")
-    .bail()
-    .matches(/^(?=.*[A-Za-z])(?=.*\d)/)
-    .withMessage("Password must contain at least one letter and one number"),
+    .withMessage("Password must be at least 6 characters long"),
 ];
 
 module.exports = {
