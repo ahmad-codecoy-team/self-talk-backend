@@ -47,6 +47,12 @@ function constantTimeEq(a, b) {
 // =================== REGISTER ===================
 exports.register = async (req, res, next) => {
   try {
+    console.log('📝 Register request:', {
+      hasBody: !!req.body,
+      bodyKeys: req.body ? Object.keys(req.body) : [],
+      contentType: req.headers['content-type']
+    });
+
     // Ensure req.body exists (only check for undefined/null, not empty objects)
     if (req.body === undefined || req.body === null) {
       return error(res, 400, "Request body is required", {
@@ -163,19 +169,42 @@ exports.register = async (req, res, next) => {
 // =================== UPLOAD PROFILE PICTURE (PUBLIC FOR REGISTRATION) ===================
 exports.uploadProfilePicture = async (req, res, next) => {
   try {
+    console.log('📸 Upload request:', {
+      hasFile: !!req.file,
+      filename: req.file?.filename,
+      originalname: req.file?.originalname,
+      size: req.file?.size,
+      mimetype: req.file?.mimetype
+    });
+
     if (!req.file) {
       return error(res, 400, "Profile picture upload failed", {
         profilePicture: "No file was uploaded",
       });
     }
 
+    // Validate file was actually saved
+    const fs = require("fs");
+    const path = require("path");
+    const filePath = path.join(__dirname, "..", "uploads", "profile_pics", req.file.filename);
+
+    if (!fs.existsSync(filePath)) {
+      console.error("❌ File not found after upload:", filePath);
+      return error(res, 500, "File upload failed", {
+        profilePicture: "File was not saved successfully",
+      });
+    }
+
     // Just return the file path for use during registration
     const profilePicturePath = `/uploads/profile_pics/${req.file.filename}`;
+
+    console.log('✅ File uploaded successfully:', profilePicturePath);
 
     return success(res, 200, "Profile picture uploaded successfully", {
       profilePicture: profilePicturePath,
     });
   } catch (err) {
+    console.error('❌ Upload error:', err);
     next(err);
   }
 };

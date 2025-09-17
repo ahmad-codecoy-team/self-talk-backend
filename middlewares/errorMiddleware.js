@@ -2,10 +2,18 @@ const { error } = require("../utils/response");
 const multer = require("multer");
 
 const errorHandler = (err, req, res, _next) => {
-  console.error("❌ ERROR:", err.stack);
+  console.error("❌ ERROR:", {
+    message: err.message,
+    stack: err.stack,
+    method: req.method,
+    url: req.url,
+    body: req.body,
+    timestamp: new Date().toISOString()
+  });
 
   // If response already sent by controller, skip
   if (res.headersSent) {
+    console.error("❌ Response already sent, cannot handle error");
     return _next(err);
   }
 
