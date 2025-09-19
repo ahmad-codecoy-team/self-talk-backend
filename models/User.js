@@ -55,6 +55,10 @@ const UserSchema = new mongoose.Schema(
       ref: "Role",
       required: true,
     },
+    is_suspended: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

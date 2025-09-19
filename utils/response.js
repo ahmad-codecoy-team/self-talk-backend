@@ -1,4 +1,4 @@
-exports.success = (res, statusCode, message, data) => {
+exports.success = (res, statusCode, message, data, meta) => {
   const response = {
     success: true,
     statusCode,
@@ -7,6 +7,10 @@ exports.success = (res, statusCode, message, data) => {
 
   if (data !== undefined) {
     response.data = data;
+  }
+
+  if (meta !== undefined) {
+    response.meta = meta;
   }
 
   return res.status(statusCode).json(response);

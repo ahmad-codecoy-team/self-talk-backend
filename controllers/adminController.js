@@ -1,0 +1,262 @@
+const SubscriptionPlan = require("../models/SubscriptionPlan");
+const User = require("../models/User");
+const { success, error } = require("../utils/response");
+const { formatUserResponse, formatPlanResponse } = require("../utils/formatters");
+
+// =================== ADMIN SUBSCRIPTION PLAN MANAGEMENT ===================
+
+// CREATE - Create a new subscription plan (Admin only)
+exports.createPlan = async (req, res, next) => {
+  try {
+    const { name, status, price, billing_period, voice_minutes, features, description, is_popular } = req.body;
+
+    // Validation
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return error(res, 400, "Plan name is required and must be a non-empty string");
+    }
+
+    if (status && !["Active", "Inactive"].includes(status)) {
+      return error(res, 400, "Invalid status. Must be Active or Inactive");
+    }
+
+    if (price === undefined || price < 0) {
+      return error(res, 400, "Price is required and must be >= 0");
+    }
+
+    if (!billing_period || !["yearly", "monthly"].includes(billing_period)) {
+      return error(res, 400, "Invalid billing period. Must be yearly or monthly");
+    }
+
+    if (voice_minutes === undefined || voice_minutes < 0) {
+      return error(res, 400, "Voice minutes is required and must be >= 0");
+    }
+
+    if (!features || !Array.isArray(features) || features.length === 0) {
+      return error(res, 400, "Features array is required and cannot be empty");
+    }
+
+    if (!description) {
+      return error(res, 400, "Description is required");
+    }
+
+    // Check if plan with same name already exists
+    const existingPlan = await SubscriptionPlan.findOne({ name });
+    if (existingPlan) {
+      return error(res, 409, `Plan with name '${name}' already exists`);
+    }
+
+    const plan = await SubscriptionPlan.create({
+      name,
+      status: status || "Active",
+      price,
+      billing_period,
+      voice_minutes,
+      features,
+      description,
+      is_popular: is_popular || false,
+    });
+
+    return success(res, 201, "Subscription plan created successfully", {
+      plan: formatPlanResponse(plan)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// READ - Get all subscription plans
+exports.getAllPlans = async (req, res, next) => {
+  try {
+    const { status } = req.query;
+
+    let filter = {};
+    if (status && ["Active", "Inactive"].includes(status)) {
+      filter.status = status;
+    }
+
+    const plans = await SubscriptionPlan.find(filter).sort({ createdAt: 1 });
+
+    return success(res, 200, "Subscription plans fetched successfully", {
+      plans: plans.map(plan => formatPlanResponse(plan))
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// READ - Get single subscription plan by ID
+exports.getPlanById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const plan = await SubscriptionPlan.findById(id);
+    if (!plan) {
+      return error(res, 404, "Subscription plan not found");
+    }
+
+    return success(res, 200, "Subscription plan fetched successfully", {
+      plan: formatPlanResponse(plan)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// UPDATE - Update subscription plan (Admin only)
+exports.updatePlan = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, status, price, billing_period, voice_minutes, features, description, is_popular } = req.body;
+
+    const plan = await SubscriptionPlan.findById(id);
+    if (!plan) {
+      return error(res, 404, "Subscription plan not found");
+    }
+
+    // Validation for updates
+    if (name && (typeof name !== 'string' || name.trim().length === 0)) {
+      return error(res, 400, "Plan name must be a non-empty string");
+    }
+
+    if (status && !["Active", "Inactive"].includes(status)) {
+      return error(res, 400, "Invalid status. Must be Active or Inactive");
+    }
+
+    if (price !== undefined && price < 0) {
+      return error(res, 400, "Price must be >= 0");
+    }
+
+    if (billing_period && !["yearly", "monthly"].includes(billing_period)) {
+      return error(res, 400, "Invalid billing period. Must be yearly or monthly");
+    }
+
+    if (voice_minutes !== undefined && voice_minutes < 0) {
+      return error(res, 400, "Voice minutes must be >= 0");
+    }
+
+    if (features && (!Array.isArray(features) || features.length === 0)) {
+      return error(res, 400, "Features must be a non-empty array");
+    }
+
+    // Check if changing name would create duplicate
+    if (name && name !== plan.name) {
+      const existingPlan = await SubscriptionPlan.findOne({ name, _id: { $ne: id } });
+      if (existingPlan) {
+        return error(res, 409, `Plan with name '${name}' already exists`);
+      }
+    }
+
+    // Update fields
+    if (name) plan.name = name;
+    if (status) plan.status = status;
+    if (price !== undefined) plan.price = price;
+    if (billing_period) plan.billing_period = billing_period;
+    if (voice_minutes !== undefined) plan.voice_minutes = voice_minutes;
+    if (features) plan.features = features;
+    if (description) plan.description = description;
+    if (is_popular !== undefined) plan.is_popular = is_popular;
+
+    await plan.save();
+
+    return success(res, 200, "Subscription plan updated successfully", {
+      plan: formatPlanResponse(plan)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE - Delete subscription plan (Admin only)
+exports.deletePlan = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const plan = await SubscriptionPlan.findById(id);
+    if (!plan) {
+      return error(res, 404, "Subscription plan not found");
+    }
+
+    // Check if any users are subscribed to this plan
+    const subscribedUsers = await User.countDocuments({ current_subscription: id });
+    if (subscribedUsers > 0) {
+      return error(res, 400, `Cannot delete plan. ${subscribedUsers} users are currently subscribed to this plan`);
+    }
+
+    await SubscriptionPlan.findByIdAndDelete(id);
+
+    return success(res, 200, "Subscription plan deleted successfully");
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== ADMIN USER MANAGEMENT ===================
+
+// GET - Get all users with pagination (Admin only)
+exports.getAllUsers = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get users with role "user" only (exclude admins from this list)
+    const roleFilter = await require("../models/Role").findOne({ name: "user" });
+    if (!roleFilter) {
+      return error(res, 500, "User role not found");
+    }
+
+    const filter = { role: roleFilter._id };
+
+    // Get total count for pagination meta
+    const total = await User.countDocuments(filter);
+    const totalPages = Math.ceil(total / limit);
+
+    // Get users with pagination
+    const users = await User.find(filter)
+      .populate("role", "name description")
+      .populate("current_subscription", "name price billing_period")
+      .select("-password") // Exclude password from response
+      .sort({ createdAt: -1 }) // Most recent first
+      .skip(skip)
+      .limit(limit);
+
+    return success(res, 200, "Users fetched successfully", {
+      users: users.map(user => formatUserResponse(user))
+    }, {
+      total,
+      limit,
+      totalPages,
+      currentPage: page
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PUT - Toggle user suspension (Admin only)
+exports.toggleUserSuspension = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id).populate("role").populate("current_subscription");
+    if (!user) {
+      return error(res, 404, "User not found");
+    }
+
+    // Prevent suspending admin users
+    if (user.role && user.role.name === "admin") {
+      return error(res, 403, "Cannot suspend admin users");
+    }
+
+    // Toggle suspension status
+    user.is_suspended = !user.is_suspended;
+    await user.save();
+
+    const action = user.is_suspended ? "suspended" : "unsuspended";
+    return success(res, 200, `User ${action} successfully`, {
+      user: formatUserResponse(user)
+    });
+  } catch (err) {
+    next(err);
+  }
+};

@@ -5,8 +5,7 @@ const SubscriptionPlanSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      enum: ["Free", "Premium", "Super"],
-      unique: true,
+      trim: true,
     },
     status: {
       type: String,
@@ -49,7 +48,7 @@ const SubscriptionPlanSchema = new mongoose.Schema(
 );
 
 // Index for efficient queries
-SubscriptionPlanSchema.index({ name: 1 });
+SubscriptionPlanSchema.index({ name: 1 }, { unique: true });
 SubscriptionPlanSchema.index({ status: 1 });
 
 module.exports = mongoose.model("SubscriptionPlan", SubscriptionPlanSchema);

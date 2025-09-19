@@ -6,7 +6,7 @@ const Role = require("../models/Role");
 const OTP = require("../models/OTP");
 const { success, error } = require("../utils/response");
 const { sendEmail } = require("../utils/emailService");
-const { blacklistToken } = require("../utils/jwtBlacklist");
+const { formatUserResponse } = require("../utils/formatters");
 
 // Access token: 30 days for regular users, permanent for admins
 const ACCESS_EXPIRES = "30d";
@@ -120,21 +120,7 @@ exports.register = async (req, res, next) => {
     await user.populate("role");
 
     return success(res, 201, "User registered successfully", {
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        profilePicture: user.profilePicture,
-        voice_id: user.voice_id,
-        model_id: user.model_id,
-        total_minutes: user.total_minutes,
-        available_minutes: user.available_minutes,
-        current_subscription: user.current_subscription,
-        subscription_started_at: user.subscription_started_at,
-        role: user.role,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      user: formatUserResponse(user),
     });
   } catch (err) {
     // Handle MongoDB duplicate key errors
@@ -253,26 +239,17 @@ exports.login = async (req, res, next) => {
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return error(res, 400, "Invalid credentials");
 
+    // Check if user is suspended
+    if (user.is_suspended) {
+      return error(res, 403, "Your account has been suspended. Please contact support for assistance.");
+    }
+
     // Generate permanent token for admin, regular expiring token for users
     const isAdmin = user.role && user.role.name === "admin";
     const accessToken = signAccessToken({ uid: user._id }, isAdmin);
 
     return success(res, 200, "Logged in successfully", {
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        profilePicture: user.profilePicture,
-        voice_id: user.voice_id,
-        model_id: user.model_id,
-        total_minutes: user.total_minutes,
-        available_minutes: user.available_minutes,
-        current_subscription: user.current_subscription,
-        subscription_started_at: user.subscription_started_at,
-        role: user.role,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      user: formatUserResponse(user),
       accessToken,
     });
   } catch (err) {
@@ -281,24 +258,6 @@ exports.login = async (req, res, next) => {
 };
 
 
-
-// =================== LOGOUT ===================
-exports.logout = async (req, res, next) => {
-  try {
-    const token = req.user?.token;
-
-    if (!token) {
-      return error(res, 400, "No token provided");
-    }
-
-    // Add token to blacklist
-    blacklistToken(token);
-
-    return success(res, 200, "Logged out successfully");
-  } catch (err) {
-    next(err);
-  }
-};
 
 // =================== FORGOT PASSWORD ===================
 exports.forgotPassword = async (req, res, next) => {

@@ -2,7 +2,6 @@ const express = require("express");
 const {
   register,
   login,
-  logout,
   forgotPassword,
   resetPassword,
   verifyResetOtp,
@@ -34,7 +33,6 @@ router.post(
   uploadProfilePicture
 );
 router.post("/login", loginValidation, validate, login);
-router.post("/logout", requireAuth, logout);
 
 router.post(
   "/forgot-password",

@@ -16,8 +16,9 @@ const createPlanValidation = [
     .custom(isPlainString)
     .withMessage("Plan name must be a string")
     .bail()
-    .isIn(["Free", "Premium", "Super"])
-    .withMessage("Plan name must be Free, Premium, or Super"),
+    .trim()
+    .isLength({ min: 1 })
+    .withMessage("Plan name cannot be empty"),
   body("status")
     .optional()
     .custom(notArray)
@@ -103,8 +104,15 @@ const updatePlanValidation = [
     .withMessage("Invalid plan ID"),
   body("name")
     .optional()
-    .isIn(["Free", "Premium", "Super"])
-    .withMessage("Plan name must be Free, Premium, or Super"),
+    .custom(notArray)
+    .withMessage("Plan name must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Plan name must be a string")
+    .bail()
+    .trim()
+    .isLength({ min: 1 })
+    .withMessage("Plan name cannot be empty"),
   body("status")
     .optional()
     .isIn(["Active", "Inactive"])
@@ -159,26 +167,10 @@ const addMinutesValidation = [
     .withMessage("Minutes must be a positive integer"),
 ];
 
-// Validation for updating voice and model
-const updateVoiceModelValidation = [
-  body("voice_id")
-    .optional()
-    .isString()
-    .trim()
-    .isLength({ min: 1 })
-    .withMessage("Voice ID must be a non-empty string"),
-  body("model_id")
-    .optional()
-    .isString()
-    .trim()
-    .isLength({ min: 1 })
-    .withMessage("Model ID must be a non-empty string"),
-];
 
 module.exports = {
   createPlanValidation,
   updatePlanValidation,
   subscribeValidation,
   addMinutesValidation,
-  updateVoiceModelValidation,
 };

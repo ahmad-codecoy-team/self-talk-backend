@@ -1,13 +1,12 @@
 const { verifyAccessToken } = require("../utils/jwt");
 const { error } = require("../utils/response");
 const User = require("../models/User");
-const { isTokenBlacklisted } = require("../utils/jwtBlacklist");
 
 /**
  * Reads JWT access token from Authorization header:
  *   Authorization: Bearer <accessToken>
  */
-const requireAuth = (req, res, next) => {
+const requireAuth = async (req, res, next) => {
   const auth = req.headers.authorization || "";
   const [scheme, token] = auth.split(" ");
 
@@ -15,14 +14,20 @@ const requireAuth = (req, res, next) => {
     return error(res, 401, "Not authenticated");
   }
 
-  // Check if token is blacklisted
-  if (isTokenBlacklisted(token)) {
-    return error(res, 401, "Token has been invalidated");
-  }
-
   try {
     const decoded = verifyAccessToken(token);
-    req.user = { uid: decoded.uid, token }; // Include token for logout
+
+    // Check if user is suspended
+    const user = await User.findById(decoded.uid).select("is_suspended");
+    if (!user) {
+      return error(res, 401, "User not found");
+    }
+
+    if (user.is_suspended) {
+      return error(res, 403, "Your account has been suspended. Please contact support for assistance.");
+    }
+
+    req.user = { uid: decoded.uid };
     next();
   } catch (_e) {
     return error(res, 401, "Token invalid or expired");
@@ -35,13 +40,13 @@ const requireAuth = (req, res, next) => {
 const requireAdmin = async (req, res, next) => {
   try {
     const userId = req.user.uid;
-    const user = await User.findById(userId).select("is_admin");
+    const user = await User.findById(userId).populate("role");
 
     if (!user) {
       return error(res, 404, "User not found");
     }
 
-    if (!user.is_admin) {
+    if (!user.role || user.role.name !== "admin") {
       return error(res, 403, "Admin access required");
     }
 
