@@ -520,6 +520,173 @@ Authorization: Bearer <admin_token>
 }
 ```
 
+### FAQ Management
+
+#### POST `/api/admin/faq`
+Create a new FAQ (Admin only).
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Request Body:**
+```json
+{
+  "category": "General",
+  "question": "What is SelfTalk?",
+  "answer": "SelfTalk is an AI-powered companion application that helps you practice conversations and improve your communication skills."
+}
+```
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "statusCode": 201,
+  "message": "FAQ created successfully",
+  "data": {
+    "faq": {
+      "_id": "faq_id",
+      "category": "General",
+      "question": "What is SelfTalk?",
+      "answer": "SelfTalk is an AI-powered companion application that helps you practice conversations and improve your communication skills.",
+      "createdAt": "2025-09-19T12:00:00.000Z",
+      "updatedAt": "2025-09-19T12:00:00.000Z"
+    }
+  }
+}
+```
+
+#### GET `/api/admin/faq`
+Get all FAQs with optional category filter (Admin only).
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Query Parameters:**
+- `category` (optional): Filter by category (General, Account, Billing, Features, Technical)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "FAQs fetched successfully",
+  "data": {
+    "faqs": [
+      {
+        "_id": "faq_id",
+        "category": "General",
+        "question": "What is SelfTalk?",
+        "answer": "SelfTalk is an AI-powered companion application that helps you practice conversations and improve your communication skills.",
+        "createdAt": "2025-09-19T12:00:00.000Z",
+        "updatedAt": "2025-09-19T12:00:00.000Z"
+      },
+      {
+        "_id": "faq_id_2",
+        "category": "Account",
+        "question": "How do I reset my password?",
+        "answer": "You can reset your password by clicking the 'Forgot Password' link on the login page and following the instructions sent to your email.",
+        "createdAt": "2025-09-19T11:30:00.000Z",
+        "updatedAt": "2025-09-19T11:30:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+#### GET `/api/admin/faq/:id`
+Get single FAQ by ID (Admin only).
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "FAQ fetched successfully",
+  "data": {
+    "faq": {
+      "_id": "faq_id",
+      "category": "Features",
+      "question": "How many voice minutes do I get with the free plan?",
+      "answer": "The free plan includes 2 voice minutes to help you get started with SelfTalk.",
+      "createdAt": "2025-09-19T12:00:00.000Z",
+      "updatedAt": "2025-09-19T12:00:00.000Z"
+    }
+  }
+}
+```
+
+#### PUT `/api/admin/faq/:id`
+Update FAQ (Admin only). All fields are optional for partial updates.
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Request Body (all fields optional):**
+```json
+{
+  "category": "Billing",
+  "question": "How do I cancel my subscription?",
+  "answer": "You can cancel your subscription at any time from your account settings. Your current plan will remain active until the end of the billing period."
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "FAQ updated successfully",
+  "data": {
+    "faq": {
+      "_id": "faq_id",
+      "category": "Billing",
+      "question": "How do I cancel my subscription?",
+      "answer": "You can cancel your subscription at any time from your account settings. Your current plan will remain active until the end of the billing period.",
+      "createdAt": "2025-09-19T12:00:00.000Z",
+      "updatedAt": "2025-09-19T12:15:00.000Z"
+    }
+  }
+}
+```
+
+#### DELETE `/api/admin/faq/:id`
+Delete FAQ (Admin only).
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "FAQ deleted successfully"
+}
+```
+
+**Error Response (404) - FAQ not found:**
+```json
+{
+  "success": false,
+  "statusCode": 404,
+  "message": "FAQ not found"
+}
+```
+
 ## Authentication Requirements
 - **Public**: `/api/subscriptions/plans` - No authentication required
 - **User Protected**: All subscription and user endpoints require valid JWT token
@@ -534,3 +701,4 @@ Authorization: Bearer <admin_token>
 - **Logout Removal**: Removed backend logout functionality (handled on frontend)
 - **Partial Updates**: All update endpoints support partial field updates
 - **URL Structure Improvement**: Changed suspension endpoint from `/api/admin/users/:id/suspension` to `/api/admin/users/suspension/:id`
+- **FAQ Management System**: Added complete CRUD operations for FAQ management with 5 predefined categories (General, Account, Billing, Features, Technical)

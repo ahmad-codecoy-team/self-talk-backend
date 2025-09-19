@@ -48,3 +48,21 @@ exports.formatPlanResponse = (plan) => {
     updatedAt: plan.updatedAt
   };
 };
+
+/**
+ * Format FAQ object for API responses
+ * @param {Object} faq - FAQ object from database
+ * @returns {Object} - Formatted FAQ object
+ */
+exports.formatFAQResponse = (faq) => {
+  if (!faq) return null;
+
+  return {
+    _id: faq._id,
+    category: faq.category,
+    question: faq.question,
+    answer: faq.answer,
+    createdAt: faq.createdAt,
+    updatedAt: faq.updatedAt
+  };
+};

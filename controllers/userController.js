@@ -1,5 +1,9 @@
 const bcrypt = require("bcryptjs");
+const mongoose = require("mongoose");
 const User = require("../models/User");
+const Message = require("../models/Message");
+const Conversation = require("../models/Conversation");
+const OTP = require("../models/OTP");
 const { success, error } = require("../utils/response");
 const { deleteProfilePicture } = require("./authController");
 
@@ -162,23 +166,41 @@ exports.changePassword = async (req, res, next) => {
 
 // =================== DELETE USER ACCOUNT ===================
 exports.deleteAccount = async (req, res, next) => {
+  const session = await mongoose.startSession();
+
   try {
     const userId = req.user.uid;
 
-    // Find user to get profile picture path before deletion
+    // Find user to get profile picture path and email before deletion
     const user = await User.findById(userId);
     if (!user) {
       return error(res, 404, "User not found");
     }
 
-    // Delete profile picture if it's not the default one
+    // Start transaction for atomic deletion
+    await session.withTransaction(async () => {
+      // 1. Delete all messages related to the user
+      await Message.deleteMany({ userId }, { session });
+
+      // 2. Delete all conversations related to the user
+      await Conversation.deleteMany({ userId }, { session });
+
+      // 3. Delete all OTPs related to the user's email
+      await OTP.deleteMany({ email: user.email }, { session });
+
+      // 4. Finally, delete the user account itself
+      await User.findByIdAndDelete(userId, { session });
+    });
+
+    // 5. Delete profile picture after successful database operations
+    // (this is outside transaction as it's a file system operation)
     await deleteProfilePicture(userId, user.profilePicture);
 
-    // Delete user account
-    await User.findByIdAndDelete(userId);
-
-    return success(res, 200, "Account deleted successfully");
+    return success(res, 200, "Account and all associated data deleted successfully");
   } catch (err) {
+    console.error("Error during account deletion:", err);
     next(err);
+  } finally {
+    await session.endSession();
   }
 };

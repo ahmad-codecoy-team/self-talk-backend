@@ -1,7 +1,8 @@
 const SubscriptionPlan = require("../models/SubscriptionPlan");
 const User = require("../models/User");
+const FAQ = require("../models/FAQ");
 const { success, error } = require("../utils/response");
-const { formatUserResponse, formatPlanResponse } = require("../utils/formatters");
+const { formatUserResponse, formatPlanResponse, formatFAQResponse } = require("../utils/formatters");
 
 // =================== ADMIN SUBSCRIPTION PLAN MANAGEMENT ===================
 
@@ -256,6 +257,108 @@ exports.toggleUserSuspension = async (req, res, next) => {
     return success(res, 200, `User ${action} successfully`, {
       user: formatUserResponse(user)
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== ADMIN FAQ MANAGEMENT ===================
+
+// CREATE - Create a new FAQ (Admin only)
+exports.createFAQ = async (req, res, next) => {
+  try {
+    const { category, question, answer } = req.body;
+
+    const faq = await FAQ.create({
+      category,
+      question,
+      answer,
+    });
+
+    return success(res, 201, "FAQ created successfully", {
+      faq: formatFAQResponse(faq)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// READ - Get all FAQs
+exports.getAllFAQs = async (req, res, next) => {
+  try {
+    const { category } = req.query;
+
+    let filter = {};
+    if (category && ["General", "Account", "Billing", "Features", "Technical"].includes(category)) {
+      filter.category = category;
+    }
+
+    const faqs = await FAQ.find(filter).sort({ createdAt: -1 });
+
+    return success(res, 200, "FAQs fetched successfully", {
+      faqs: faqs.map(faq => formatFAQResponse(faq))
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// READ - Get single FAQ by ID
+exports.getFAQById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const faq = await FAQ.findById(id);
+    if (!faq) {
+      return error(res, 404, "FAQ not found");
+    }
+
+    return success(res, 200, "FAQ fetched successfully", {
+      faq: formatFAQResponse(faq)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// UPDATE - Update FAQ (Admin only)
+exports.updateFAQ = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { category, question, answer } = req.body;
+
+    const faq = await FAQ.findById(id);
+    if (!faq) {
+      return error(res, 404, "FAQ not found");
+    }
+
+    if (category) faq.category = category;
+    if (question) faq.question = question;
+    if (answer) faq.answer = answer;
+
+    await faq.save();
+
+    return success(res, 200, "FAQ updated successfully", {
+      faq: formatFAQResponse(faq)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE - Delete FAQ (Admin only)
+exports.deleteFAQ = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const faq = await FAQ.findById(id);
+    if (!faq) {
+      return error(res, 404, "FAQ not found");
+    }
+
+    await FAQ.findByIdAndDelete(id);
+
+    return success(res, 200, "FAQ deleted successfully");
   } catch (err) {
     next(err);
   }
