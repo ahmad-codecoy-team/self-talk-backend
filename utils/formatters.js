@@ -66,3 +66,24 @@ exports.formatFAQResponse = (faq) => {
     updatedAt: faq.updatedAt
   };
 };
+
+/**
+ * Format document object for API responses
+ * @param {Object} document - Document object from database
+ * @returns {Object} - Formatted document object
+ */
+exports.formatDocumentResponse = (document) => {
+  if (!document) return null;
+
+  return {
+    _id: document._id,
+    slug: document.slug,
+    title: document.title,
+    content: document.content,
+    type: document.type,
+    isPublished: document.isPublished,
+    lastUpdated: document.lastUpdated,
+    createdAt: document.createdAt,
+    updatedAt: document.updatedAt
+  };
+};

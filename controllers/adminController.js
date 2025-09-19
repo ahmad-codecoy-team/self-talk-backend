@@ -1,8 +1,9 @@
 const SubscriptionPlan = require("../models/SubscriptionPlan");
 const User = require("../models/User");
 const FAQ = require("../models/FAQ");
+const Document = require("../models/Document");
 const { success, error } = require("../utils/response");
-const { formatUserResponse, formatPlanResponse, formatFAQResponse } = require("../utils/formatters");
+const { formatUserResponse, formatPlanResponse, formatFAQResponse, formatDocumentResponse } = require("../utils/formatters");
 
 // =================== ADMIN SUBSCRIPTION PLAN MANAGEMENT ===================
 
@@ -359,6 +360,83 @@ exports.deleteFAQ = async (req, res, next) => {
     await FAQ.findByIdAndDelete(id);
 
     return success(res, 200, "FAQ deleted successfully");
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== ADMIN DOCUMENT MANAGEMENT ===================
+
+// READ - Get all documents (Admin only)
+exports.getAllDocuments = async (req, res, next) => {
+  try {
+    const documents = await Document.find({}).sort({ createdAt: -1 });
+
+    return success(res, 200, "Documents fetched successfully", {
+      documents: documents.map(doc => formatDocumentResponse(doc))
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// READ - Get single document by ID (Admin only)
+exports.getDocumentById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const document = await Document.findById(id);
+    if (!document) {
+      return error(res, 404, "Document not found");
+    }
+
+    return success(res, 200, "Document fetched successfully", {
+      document: formatDocumentResponse(document)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// READ - Get single document by slug (Admin only)
+exports.getDocumentBySlug = async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+
+    const document = await Document.findOne({ slug });
+    if (!document) {
+      return error(res, 404, "Document not found");
+    }
+
+    return success(res, 200, "Document fetched successfully", {
+      document: formatDocumentResponse(document)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// UPDATE - Update document (Admin only)
+exports.updateDocument = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { title, content, isPublished } = req.body;
+
+    const document = await Document.findById(id);
+    if (!document) {
+      return error(res, 404, "Document not found");
+    }
+
+    // Update fields
+    if (title !== undefined) document.title = title;
+    if (content !== undefined) document.content = content;
+    if (isPublished !== undefined) document.isPublished = isPublished;
+
+    await document.save();
+
+    return success(res, 200, "Document updated successfully", {
+      document: formatDocumentResponse(document)
+    });
   } catch (err) {
     next(err);
   }

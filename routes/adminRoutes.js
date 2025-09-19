@@ -12,6 +12,10 @@ const {
   getFAQById,
   updateFAQ,
   deleteFAQ,
+  getAllDocuments,
+  getDocumentById,
+  getDocumentBySlug,
+  updateDocument,
 } = require("../controllers/adminController");
 const { requireAuth, requireAdmin } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validateMiddleware");
@@ -25,6 +29,10 @@ const {
   createFAQValidation,
   updateFAQValidation,
 } = require("../validators/faqValidator");
+
+const {
+  updateDocumentValidation,
+} = require("../validators/documentValidator");
 
 const router = express.Router();
 
@@ -69,5 +77,19 @@ router.put("/faq/:id", requireAuth, requireAdmin, updateFAQValidation, validate,
 
 // Delete FAQ (Admin only)
 router.delete("/faq/:id", requireAuth, requireAdmin, deleteFAQ);
+
+// =================== ADMIN DOCUMENT MANAGEMENT ===================
+
+// Get all documents (Admin only)
+router.get("/documents", requireAuth, requireAdmin, getAllDocuments);
+
+// Get single document by ID (Admin only)
+router.get("/documents/:id", requireAuth, requireAdmin, getDocumentById);
+
+// Get single document by slug (Admin only)
+router.get("/documents/slug/:slug", requireAuth, requireAdmin, getDocumentBySlug);
+
+// Update document (Admin only)
+router.put("/documents/:id", requireAuth, requireAdmin, updateDocumentValidation, validate, updateDocument);
 
 module.exports = router;

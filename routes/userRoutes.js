@@ -4,6 +4,8 @@ const {
   updateProfile,
   changePassword,
   deleteAccount,
+  getDocumentBySlug,
+  getPublishedDocuments,
 } = require("../controllers/userController");
 const { requireAuth } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validateMiddleware");
@@ -35,5 +37,15 @@ router.put(
   changePassword
 );
 router.delete("/delete-account", requireAuth, deleteAccount);
+
+// =========================
+// Public Document Routes
+// =========================
+
+// Get all published documents (Public access - no auth required)
+router.get("/documents", getPublishedDocuments);
+
+// Get single published document by slug (Public access - no auth required)
+router.get("/documents/:slug", getDocumentBySlug);
 
 module.exports = router;

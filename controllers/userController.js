@@ -4,8 +4,10 @@ const User = require("../models/User");
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const OTP = require("../models/OTP");
+const Document = require("../models/Document");
 const { success, error } = require("../utils/response");
 const { deleteProfilePicture } = require("./authController");
+const { formatDocumentResponse } = require("../utils/formatters");
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
 
@@ -202,5 +204,48 @@ exports.deleteAccount = async (req, res, next) => {
     next(err);
   } finally {
     await session.endSession();
+  }
+};
+
+// =================== PUBLIC DOCUMENT ACCESS ===================
+
+// GET - Get published document by slug (Public access)
+exports.getDocumentBySlug = async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+
+    // Only return published documents
+    const document = await Document.findOne({ slug, isPublished: true });
+    if (!document) {
+      return error(res, 404, "Document not found or not published");
+    }
+
+    return success(res, 200, "Document fetched successfully", {
+      document: formatDocumentResponse(document)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET - Get all published documents (Public access)
+exports.getPublishedDocuments = async (req, res, next) => {
+  try {
+    // Only return published documents
+    const documents = await Document.find({ isPublished: true })
+      .select('slug title lastUpdated createdAt updatedAt')
+      .sort({ createdAt: -1 });
+
+    return success(res, 200, "Published documents fetched successfully", {
+      documents: documents.map(doc => ({
+        slug: doc.slug,
+        title: doc.title,
+        lastUpdated: doc.lastUpdated,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt
+      }))
+    });
+  } catch (err) {
+    next(err);
   }
 };
