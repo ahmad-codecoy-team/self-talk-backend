@@ -10,7 +10,7 @@ const { formatUserResponse, formatPlanResponse, formatFAQResponse, formatDocumen
 // CREATE - Create a new subscription plan (Admin only)
 exports.createPlan = async (req, res, next) => {
   try {
-    const { name, status, price, billing_period, voice_minutes, features, description, is_popular } = req.body;
+    const { name, status, price, billing_period, voice_minutes, features, description, is_popular, currency } = req.body;
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -56,6 +56,7 @@ exports.createPlan = async (req, res, next) => {
       features,
       description,
       is_popular: is_popular || false,
+      currency: currency || "EUR",
     });
 
     return success(res, 201, "Subscription plan created successfully", {
@@ -108,7 +109,7 @@ exports.getPlanById = async (req, res, next) => {
 exports.updatePlan = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, status, price, billing_period, voice_minutes, features, description, is_popular } = req.body;
+    const { name, status, price, billing_period, voice_minutes, features, description, is_popular, currency } = req.body;
 
     const plan = await SubscriptionPlan.findById(id);
     if (!plan) {
@@ -157,6 +158,7 @@ exports.updatePlan = async (req, res, next) => {
     if (features) plan.features = features;
     if (description) plan.description = description;
     if (is_popular !== undefined) plan.is_popular = is_popular;
+    if (currency) plan.currency = currency;
 
     await plan.save();
 

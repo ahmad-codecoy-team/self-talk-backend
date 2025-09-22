@@ -43,6 +43,12 @@ const SubscriptionPlanSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    currency: {
+      type: String,
+      required: true,
+      default: "EUR",
+      trim: true,
+    },
   },
   { timestamps: true }
 );

@@ -95,6 +95,17 @@ const createPlanValidation = [
     .bail()
     .isBoolean()
     .withMessage("is_popular must be a boolean"),
+  body("currency")
+    .optional()
+    .custom(notArray)
+    .withMessage("Currency must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Currency must be a string")
+    .bail()
+    .trim()
+    .isLength({ min: 1 })
+    .withMessage("Currency cannot be empty"),
 ];
 
 // Validation for updating a subscription plan
@@ -151,6 +162,17 @@ const updatePlanValidation = [
     .optional()
     .isBoolean()
     .withMessage("is_popular must be a boolean"),
+  body("currency")
+    .optional()
+    .custom(notArray)
+    .withMessage("Currency must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Currency must be a string")
+    .bail()
+    .trim()
+    .isLength({ min: 1 })
+    .withMessage("Currency cannot be empty"),
 ];
 
 // Validation for subscribing to a plan

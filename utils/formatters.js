@@ -44,6 +44,7 @@ exports.formatPlanResponse = (plan) => {
     features: plan.features || [],
     description: plan.description || "",
     is_popular: plan.is_popular || false,
+    currency: plan.currency || "EUR",
     createdAt: plan.createdAt,
     updatedAt: plan.updatedAt
   };
