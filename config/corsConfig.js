@@ -1,100 +1,18 @@
-// CORS Configuration for Development
-// This file centralizes all allowed origins for easier maintenance
+// CORS Configuration - ALLOWS ALL ORIGINS
+// This prevents any CORS issues in development and production
+
+// ⚠️  SECURITY NOTE: This configuration allows ALL origins for maximum compatibility
+// If you need to restrict origins for security, modify the 'origin' setting below
 
 const getDevelopmentOrigins = () => {
-  const baseOrigins = [
-    // Main development URL from environment
-    process.env.CLIENT_URL,
-
-    // Common React/Next.js development ports
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:3002",
-
-    // Vite development ports (most common for modern React/Vue)
-    "http://localhost:5173",
-    "http://localhost:5174",
-
-    // Vue CLI development ports
-    "http://localhost:8080",
-    "http://localhost:8081",
-
-    // Angular CLI development port
-    "http://localhost:4200",
-
-    // Other common development ports
-    "http://localhost:9000",   // Alternative dev server
-    "http://localhost:1234",   // Parcel bundler
-    "http://localhost:8000",   // Alternative port
-    "http://localhost:8888",   // Jupyter/alternative
-    "http://localhost:3333",   // Alternative port
-
-    // Development servers on 127.0.0.1
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
-    "http://127.0.0.1:3002",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
-    "http://127.0.0.1:8080",
-    "http://127.0.0.1:4200",
-    "http://127.0.0.1:8000",
-
-    // HTTPS variants for testing
-    "https://localhost:3000",
-    "https://localhost:5173",
-    "https://localhost:8080",
-  ];
-
-  // Add local network IPs for mobile testing
-  const localNetworkIPs = [
-    "192.168.1.100",
-    "192.168.1.101",
-    "192.168.0.100",
-    "192.168.0.101",
-    "10.0.0.100",
-    "10.0.0.101",
-  ];
-
-  const commonPorts = [3000, 3001, 3002, 5173, 5174, 8080, 4200];
-
-  localNetworkIPs.forEach(ip => {
-    commonPorts.forEach(port => {
-      baseOrigins.push(`http://${ip}:${port}`);
-    });
-  });
-
-  // Filter out undefined values and duplicates
-  return [...new Set(baseOrigins.filter(Boolean))];
+  // This function is kept for reference but not used in current configuration
+  // We're now allowing ALL origins to prevent CORS issues permanently
+  return [];
 };
 
 const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = getDevelopmentOrigins();
-
-    // Allow requests with no origin (mobile apps, curl, Postman, etc.)
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      // In development mode, be more permissive - allow external URLs
-      // This ensures live/production frontends can still connect during development
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`⚠️  CORS allowing external origin in development: ${origin}`);
-        console.log(`📝 Add this to corsConfig.js if it's a permanent frontend URL`);
-        callback(null, true);
-      } else {
-        // In production, be strict
-        console.log(`🚫 CORS blocked origin in production: ${origin}`);
-        const error = new Error(`CORS policy: Origin ${origin} is not allowed`);
-        error.status = 403;
-        callback(error);
-      }
-    }
-  },
+  // ALLOW ALL ORIGINS - Permanent solution to prevent CORS issues
+  origin: true,
   credentials: false, // We're not using cookies for authentication
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: [
