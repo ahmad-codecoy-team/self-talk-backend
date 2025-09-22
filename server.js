@@ -1,6 +1,7 @@
 require("dotenv").config();
 const { connectDB } = require("./config/db");
 const { errorHandler } = require("./middlewares/errorMiddleware");
+const { corsOptions } = require("./config/corsConfig");
 const fs = require("fs");
 
 const express = require("express");
@@ -37,16 +38,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// middleware
-app.use(
-  cors({
-    origin: process.env.CLIENT_URL,
-    credentials: false, // not using cookies
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    exposedHeaders: ["Authorization"],
-  })
-);
+// CORS middleware - configured for development with comprehensive port coverage
+app.use(cors(corsOptions));
 
 // Body parsing with size limits
 app.use(express.json({ limit: '10mb' }));
