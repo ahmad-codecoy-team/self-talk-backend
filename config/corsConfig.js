@@ -80,19 +80,19 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      // In development, log blocked origins for debugging
+      // In development mode, be more permissive - allow external URLs
+      // This ensures live/production frontends can still connect during development
       if (process.env.NODE_ENV !== 'production') {
-        console.log(`🚫 CORS blocked origin: ${origin}`);
-        console.log(`📝 Add this origin to corsConfig.js if needed`);
-        console.log(`📝 Current allowed origins count: ${allowedOrigins.length}`);
-
-        // Show first few allowed origins for reference
-        console.log(`📝 Sample allowed origins:`, allowedOrigins.slice(0, 5));
+        console.log(`⚠️  CORS allowing external origin in development: ${origin}`);
+        console.log(`📝 Add this to corsConfig.js if it's a permanent frontend URL`);
+        callback(null, true);
+      } else {
+        // In production, be strict
+        console.log(`🚫 CORS blocked origin in production: ${origin}`);
+        const error = new Error(`CORS policy: Origin ${origin} is not allowed`);
+        error.status = 403;
+        callback(error);
       }
-
-      const error = new Error(`CORS policy: Origin ${origin} is not allowed`);
-      error.status = 403;
-      callback(error);
     }
   },
   credentials: false, // We're not using cookies for authentication
