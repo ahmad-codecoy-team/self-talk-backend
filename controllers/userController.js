@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
+const axios = require("axios");
 const User = require("../models/User");
 const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
@@ -10,6 +11,8 @@ const { deleteProfilePicture } = require("./authController");
 const { formatDocumentResponse } = require("../utils/formatters");
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
+const ELEVENLABS_API_KEY =
+  "sk_be176c8553a32b4bbeea24763b485753c8f063a4c3a1828f";
 
 // =================== GET PROFILE ===================
 exports.getProfile = async (req, res, next) => {
@@ -179,6 +182,63 @@ exports.deleteAccount = async (req, res, next) => {
       return error(res, 404, "User not found");
     }
 
+    // Delete voices from ElevenLabs before proceeding with database deletion
+    const deleteVoicePromises = [];
+
+    // Delete voice from ElevenLabs if voice_id exists
+    if (user.voice_id) {
+      deleteVoicePromises.push(
+        axios
+          .delete(`https://api.elevenlabs.io/v1/voices/${user.voice_id}`, {
+            headers: {
+              "xi-api-key": ELEVENLABS_API_KEY,
+            },
+          })
+          .catch((err) => {
+            console.error(
+              `Failed to delete voice ${user.voice_id}:`,
+              err.response?.data || err.message
+            );
+            throw new Error(
+              `Failed to delete voice from ElevenLabs: ${
+                err.response?.data?.detail?.message || err.message
+              }`
+            );
+          })
+      );
+    }
+
+    // Delete agent from ElevenLabs if model_id exists
+    if (user.model_id) {
+      deleteVoicePromises.push(
+        axios
+          .delete(
+            `https://api.elevenlabs.io/v1/convai/agents/${user.model_id}`,
+            {
+              headers: {
+                "xi-api-key": ELEVENLABS_API_KEY,
+              },
+            }
+          )
+          .catch((err) => {
+            console.error(
+              `Failed to delete agent ${user.model_id}:`,
+              err.response?.data || err.message
+            );
+            throw new Error(
+              `Failed to delete agent from ElevenLabs: ${
+                err.response?.data?.detail?.message || err.message
+              }`
+            );
+          })
+      );
+    }
+
+    // Wait for all ElevenLabs deletions to complete
+    if (deleteVoicePromises.length > 0) {
+      await Promise.all(deleteVoicePromises);
+    }
+
     // Start transaction for atomic deletion
     await session.withTransaction(async () => {
       // 1. Delete all messages related to the user
@@ -198,7 +258,11 @@ exports.deleteAccount = async (req, res, next) => {
     // (this is outside transaction as it's a file system operation)
     await deleteProfilePicture(userId, user.profilePicture);
 
-    return success(res, 200, "Account and all associated data deleted successfully");
+    return success(
+      res,
+      200,
+      "Account and all associated data deleted successfully"
+    );
   } catch (err) {
     console.error("Error during account deletion:", err);
     next(err);
@@ -221,7 +285,7 @@ exports.getDocumentBySlug = async (req, res, next) => {
     }
 
     return success(res, 200, "Document fetched successfully", {
-      document: formatDocumentResponse(document)
+      document: formatDocumentResponse(document),
     });
   } catch (err) {
     next(err);
@@ -233,17 +297,17 @@ exports.getPublishedDocuments = async (req, res, next) => {
   try {
     // Only return published documents
     const documents = await Document.find({ isPublished: true })
-      .select('slug title lastUpdated createdAt updatedAt')
+      .select("slug title lastUpdated createdAt updatedAt")
       .sort({ createdAt: -1 });
 
     return success(res, 200, "Published documents fetched successfully", {
-      documents: documents.map(doc => ({
+      documents: documents.map((doc) => ({
         slug: doc.slug,
         title: doc.title,
         lastUpdated: doc.lastUpdated,
         createdAt: doc.createdAt,
-        updatedAt: doc.updatedAt
-      }))
+        updatedAt: doc.updatedAt,
+      })),
     });
   } catch (err) {
     next(err);
