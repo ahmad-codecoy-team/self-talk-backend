@@ -12,7 +12,7 @@ const { formatDocumentResponse } = require("../utils/formatters");
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
 const ELEVENLABS_API_KEY =
-  "sk_be176c8553a32b4bbeea24763b485753c8f063a4c3a1828f";
+  "bfab645123b771ca7d9fd353e04a2fcdb0433e32fbe64e89ee4af62620629adc";
 
 // =================== GET PROFILE ===================
 exports.getProfile = async (req, res, next) => {
