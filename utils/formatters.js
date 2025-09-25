@@ -88,3 +88,24 @@ exports.formatDocumentResponse = (document) => {
     updatedAt: document.updatedAt
   };
 };
+
+/**
+ * Format notification object for API responses
+ * @param {Object} notification - Notification object from database
+ * @returns {Object} - Formatted notification object
+ */
+exports.formatNotificationResponse = (notification) => {
+  if (!notification) return null;
+
+  return {
+    _id: notification._id,
+    title: notification.title,
+    type: notification.type,
+    message: notification.message,
+    target_audience: notification.target_audience,
+    created_by: notification.created_by || null,
+    is_active: notification.is_active,
+    createdAt: notification.createdAt,
+    updatedAt: notification.updatedAt
+  };
+};

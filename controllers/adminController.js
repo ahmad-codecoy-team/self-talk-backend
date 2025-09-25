@@ -2,8 +2,9 @@ const SubscriptionPlan = require("../models/SubscriptionPlan");
 const User = require("../models/User");
 const FAQ = require("../models/FAQ");
 const Document = require("../models/Document");
+const Notification = require("../models/Notification");
 const { success, error } = require("../utils/response");
-const { formatUserResponse, formatPlanResponse, formatFAQResponse, formatDocumentResponse } = require("../utils/formatters");
+const { formatUserResponse, formatPlanResponse, formatFAQResponse, formatDocumentResponse, formatNotificationResponse } = require("../utils/formatters");
 
 // =================== ADMIN SUBSCRIPTION PLAN MANAGEMENT ===================
 
@@ -439,6 +440,145 @@ exports.updateDocument = async (req, res, next) => {
     return success(res, 200, "Document updated successfully", {
       document: formatDocumentResponse(document)
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== ADMIN NOTIFICATION MANAGEMENT ===================
+
+// CREATE - Create a new notification (Admin only)
+exports.createNotification = async (req, res, next) => {
+  try {
+    const { title, type, message, target_audience } = req.body;
+    const created_by = req.user.uid;
+
+    const notification = await Notification.create({
+      title,
+      type,
+      message,
+      target_audience,
+      created_by,
+    });
+
+    const populatedNotification = await Notification.findById(notification._id)
+      .populate("created_by", "username email");
+
+    return success(res, 201, "Notification created successfully", {
+      notification: formatNotificationResponse(populatedNotification)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// READ - Get all notifications with pagination (Admin only)
+exports.getAllNotifications = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const { type, target_audience, is_active } = req.query;
+
+    let filter = {};
+    if (type && ["Info", "Success", "Warning", "Error"].includes(type)) {
+      filter.type = type;
+    }
+    if (target_audience && ["All Users", "Active Users", "Premium Users", "Free Users"].includes(target_audience)) {
+      filter.target_audience = target_audience;
+    }
+    if (is_active !== undefined) {
+      filter.is_active = is_active === 'true';
+    }
+
+    // Get total count for pagination meta
+    const total = await Notification.countDocuments(filter);
+    const totalPages = Math.ceil(total / limit);
+
+    // Get notifications with pagination
+    const notifications = await Notification.find(filter)
+      .populate("created_by", "username email")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    return success(res, 200, "Notifications fetched successfully", {
+      notifications: notifications.map(notification => formatNotificationResponse(notification))
+    }, {
+      total,
+      limit,
+      totalPages,
+      currentPage: page
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// READ - Get single notification by ID (Admin only)
+exports.getNotificationById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const notification = await Notification.findById(id)
+      .populate("created_by", "username email");
+    if (!notification) {
+      return error(res, 404, "Notification not found");
+    }
+
+    return success(res, 200, "Notification fetched successfully", {
+      notification: formatNotificationResponse(notification)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// UPDATE - Update notification (Admin only)
+exports.updateNotification = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { title, type, message, target_audience, is_active } = req.body;
+
+    const notification = await Notification.findById(id);
+    if (!notification) {
+      return error(res, 404, "Notification not found");
+    }
+
+    // Update fields
+    if (title !== undefined) notification.title = title;
+    if (type !== undefined) notification.type = type;
+    if (message !== undefined) notification.message = message;
+    if (target_audience !== undefined) notification.target_audience = target_audience;
+    if (is_active !== undefined) notification.is_active = is_active;
+
+    await notification.save();
+
+    const updatedNotification = await Notification.findById(id)
+      .populate("created_by", "username email");
+
+    return success(res, 200, "Notification updated successfully", {
+      notification: formatNotificationResponse(updatedNotification)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE - Delete notification (Admin only)
+exports.deleteNotification = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const notification = await Notification.findById(id);
+    if (!notification) {
+      return error(res, 404, "Notification not found");
+    }
+
+    await Notification.findByIdAndDelete(id);
+
+    return success(res, 200, "Notification deleted successfully");
   } catch (err) {
     next(err);
   }

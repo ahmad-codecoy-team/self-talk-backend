@@ -6,9 +6,11 @@ const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
 const OTP = require("../models/OTP");
 const Document = require("../models/Document");
+const Notification = require("../models/Notification");
+const SubscriptionPlan = require("../models/SubscriptionPlan");
 const { success, error } = require("../utils/response");
 const { deleteProfilePicture } = require("./authController");
-const { formatDocumentResponse } = require("../utils/formatters");
+const { formatDocumentResponse, formatNotificationResponse } = require("../utils/formatters");
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
 const ELEVENLABS_API_KEY =
@@ -308,6 +310,79 @@ exports.getPublishedDocuments = async (req, res, next) => {
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
       })),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== USER NOTIFICATIONS ===================
+
+// GET - Get notifications for the current user
+exports.getMyNotifications = async (req, res, next) => {
+  try {
+    const userId = req.user.uid;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get user with subscription details
+    const user = await User.findById(userId).populate("current_subscription");
+    if (!user) {
+      return error(res, 404, "User not found");
+    }
+
+    // Determine user category for filtering notifications
+    let userCategories = ["All Users"];
+
+    // Check if user is active (has had recent activity - simplified to always true for active users)
+    userCategories.push("Active Users");
+
+    // Check subscription status
+    if (user.current_subscription) {
+      const plan = user.current_subscription;
+      if (plan.name.toLowerCase() === 'free') {
+        userCategories.push("Free Users");
+      } else {
+        userCategories.push("Premium Users");
+      }
+    } else {
+      // No subscription means free user
+      userCategories.push("Free Users");
+    }
+
+    // Build filter for notifications
+    const filter = {
+      target_audience: { $in: userCategories },
+      is_active: true
+    };
+
+    // Get total count for pagination
+    const total = await Notification.countDocuments(filter);
+    const totalPages = Math.ceil(total / limit);
+
+    // Get notifications with pagination
+    const notifications = await Notification.find(filter)
+      .populate("created_by", "username")
+      .select("-created_by.email") // Exclude admin email from response
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    return success(res, 200, "Notifications fetched successfully", {
+      notifications: notifications.map(notification => ({
+        _id: notification._id,
+        title: notification.title,
+        type: notification.type,
+        message: notification.message,
+        target_audience: notification.target_audience,
+        createdAt: notification.createdAt
+      }))
+    }, {
+      total,
+      limit,
+      totalPages,
+      currentPage: page
     });
   } catch (err) {
     next(err);

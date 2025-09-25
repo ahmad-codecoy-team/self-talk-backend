@@ -687,6 +687,253 @@ Authorization: Bearer <admin_token>
 }
 ```
 
+### Notification Management
+
+#### POST `/api/admin/notifications`
+Create a new notification (Admin only).
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Request Body:**
+```json
+{
+  "title": "System Maintenance",
+  "type": "Info",
+  "message": "We'll be performing scheduled maintenance on our servers tomorrow from 2:00 AM to 4:00 AM EST.",
+  "target_audience": "All Users"
+}
+```
+
+**Response (201):**
+```json
+{
+  "success": true,
+  "statusCode": 201,
+  "message": "Notification created successfully",
+  "data": {
+    "notification": {
+      "_id": "notification_id",
+      "title": "System Maintenance",
+      "type": "Info",
+      "message": "We'll be performing scheduled maintenance on our servers tomorrow from 2:00 AM to 4:00 AM EST.",
+      "target_audience": "All Users",
+      "created_by": {
+        "_id": "admin_id",
+        "username": "admin",
+        "email": "admin@example.com"
+      },
+      "is_active": true,
+      "createdAt": "2025-09-25T10:00:00.000Z",
+      "updatedAt": "2025-09-25T10:00:00.000Z"
+    }
+  }
+}
+```
+
+#### GET `/api/admin/notifications`
+Get all notifications with pagination (Admin only).
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10)
+- `type` (optional): Filter by type (Info, Success, Warning, Error)
+- `target_audience` (optional): Filter by target audience (All Users, Active Users, Premium Users, Free Users)
+- `is_active` (optional): Filter by active status (true/false)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Notifications fetched successfully",
+  "data": {
+    "notifications": [
+      {
+        "_id": "notification_id",
+        "title": "System Maintenance",
+        "type": "Info",
+        "message": "We'll be performing scheduled maintenance on our servers tomorrow from 2:00 AM to 4:00 AM EST.",
+        "target_audience": "All Users",
+        "created_by": {
+          "_id": "admin_id",
+          "username": "admin",
+          "email": "admin@example.com"
+        },
+        "is_active": true,
+        "createdAt": "2025-09-25T10:00:00.000Z",
+        "updatedAt": "2025-09-25T10:00:00.000Z"
+      }
+    ]
+  },
+  "meta": {
+    "total": 1,
+    "limit": 10,
+    "totalPages": 1,
+    "currentPage": 1
+  }
+}
+```
+
+#### GET `/api/admin/notifications/:id`
+Get single notification by ID (Admin only).
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Notification fetched successfully",
+  "data": {
+    "notification": {
+      "_id": "notification_id",
+      "title": "System Maintenance",
+      "type": "Info",
+      "message": "We'll be performing scheduled maintenance on our servers tomorrow from 2:00 AM to 4:00 AM EST.",
+      "target_audience": "All Users",
+      "created_by": {
+        "_id": "admin_id",
+        "username": "admin",
+        "email": "admin@example.com"
+      },
+      "is_active": true,
+      "createdAt": "2025-09-25T10:00:00.000Z",
+      "updatedAt": "2025-09-25T10:00:00.000Z"
+    }
+  }
+}
+```
+
+#### PUT `/api/admin/notifications/:id`
+Update notification (Admin only). All fields are optional for partial updates.
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Request Body (all fields optional):**
+```json
+{
+  "title": "Extended Maintenance Window",
+  "message": "We'll be performing scheduled maintenance on our servers tomorrow from 2:00 AM to 6:00 AM EST.",
+  "is_active": false
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Notification updated successfully",
+  "data": {
+    "notification": {
+      "_id": "notification_id",
+      "title": "Extended Maintenance Window",
+      "type": "Info",
+      "message": "We'll be performing scheduled maintenance on our servers tomorrow from 2:00 AM to 6:00 AM EST.",
+      "target_audience": "All Users",
+      "created_by": {
+        "_id": "admin_id",
+        "username": "admin",
+        "email": "admin@example.com"
+      },
+      "is_active": false,
+      "createdAt": "2025-09-25T10:00:00.000Z",
+      "updatedAt": "2025-09-25T10:30:00.000Z"
+    }
+  }
+}
+```
+
+#### DELETE `/api/admin/notifications/:id`
+Delete notification (Admin only).
+
+**Headers:**
+```
+Authorization: Bearer <admin_token>
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Notification deleted successfully"
+}
+```
+
+**Error Response (404) - Notification not found:**
+```json
+{
+  "success": false,
+  "statusCode": 404,
+  "message": "Notification not found"
+}
+```
+
+## User Notification Endpoints (`/api/user`)
+
+#### GET `/api/user/notifications`
+Get notifications for the current user based on their subscription status.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10)
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Notifications fetched successfully",
+  "data": {
+    "notifications": [
+      {
+        "_id": "notification_id",
+        "title": "Welcome to SelfTalk Premium!",
+        "type": "Success",
+        "message": "Thank you for upgrading to Premium. You now have access to 50 voice minutes and priority support.",
+        "target_audience": "Premium Users",
+        "createdAt": "2025-09-25T09:00:00.000Z"
+      },
+      {
+        "_id": "notification_id_2",
+        "title": "System Maintenance",
+        "type": "Info",
+        "message": "We'll be performing scheduled maintenance on our servers tomorrow from 2:00 AM to 4:00 AM EST.",
+        "target_audience": "All Users",
+        "createdAt": "2025-09-25T10:00:00.000Z"
+      }
+    ]
+  },
+  "meta": {
+    "total": 2,
+    "limit": 10,
+    "totalPages": 1,
+    "currentPage": 1
+  }
+}
+```
+
 ## Authentication Requirements
 - **Public**: `/api/subscriptions/plans` - No authentication required
 - **User Protected**: All subscription and user endpoints require valid JWT token
@@ -702,3 +949,4 @@ Authorization: Bearer <admin_token>
 - **Partial Updates**: All update endpoints support partial field updates
 - **URL Structure Improvement**: Changed suspension endpoint from `/api/admin/users/:id/suspension` to `/api/admin/users/suspension/:id`
 - **FAQ Management System**: Added complete CRUD operations for FAQ management with 5 predefined categories (General, Account, Billing, Features, Technical)
+- **Notification System**: Added comprehensive notification management for admin announcements with target audience filtering (All Users, Active Users, Premium Users, Free Users) and notification types (Info, Success, Warning, Error)

@@ -16,6 +16,11 @@ const {
   getDocumentById,
   getDocumentBySlug,
   updateDocument,
+  createNotification,
+  getAllNotifications,
+  getNotificationById,
+  updateNotification,
+  deleteNotification,
 } = require("../controllers/adminController");
 const { requireAuth, requireAdmin } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validateMiddleware");
@@ -33,6 +38,11 @@ const {
 const {
   updateDocumentValidation,
 } = require("../validators/documentValidator");
+
+const {
+  createNotificationValidation,
+  updateNotificationValidation,
+} = require("../validators/notificationValidator");
 
 const router = express.Router();
 
@@ -91,5 +101,22 @@ router.get("/documents/slug/:slug", requireAuth, requireAdmin, getDocumentBySlug
 
 // Update document (Admin only)
 router.put("/documents/:id", requireAuth, requireAdmin, updateDocumentValidation, validate, updateDocument);
+
+// =================== ADMIN NOTIFICATION MANAGEMENT ===================
+
+// Create a new notification (Admin only)
+router.post("/notifications", requireAuth, requireAdmin, createNotificationValidation, validate, createNotification);
+
+// Get all notifications with pagination (Admin only)
+router.get("/notifications", requireAuth, requireAdmin, getAllNotifications);
+
+// Get single notification by ID (Admin only)
+router.get("/notifications/:id", requireAuth, requireAdmin, getNotificationById);
+
+// Update notification (Admin only)
+router.put("/notifications/:id", requireAuth, requireAdmin, updateNotificationValidation, validate, updateNotification);
+
+// Delete notification (Admin only)
+router.delete("/notifications/:id", requireAuth, requireAdmin, deleteNotification);
 
 module.exports = router;
