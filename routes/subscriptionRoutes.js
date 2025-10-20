@@ -4,6 +4,7 @@ const {
   subscribeToPlan,
   addMinutes,
   getActivePlans,
+  checkSubscriptionExpiry,
 } = require("../controllers/subscriptionController");
 const { requireAuth } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validateMiddleware");
@@ -27,6 +28,9 @@ router.post("/subscribe", requireAuth, subscribeValidation, validate, subscribeT
 
 // Add minutes to user account
 router.post("/add-minutes", requireAuth, addMinutesValidation, validate, addMinutes);
+
+// Check and handle subscription expiry
+router.post("/check-expiry", requireAuth, checkSubscriptionExpiry);
 
 // Get all active plans (for users to see available options)
 router.get("/plans", getActivePlans);

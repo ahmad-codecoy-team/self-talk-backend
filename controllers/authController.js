@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const User = require("../models/User");
 const Role = require("../models/Role");
 const OTP = require("../models/OTP");
+const SubscriptionPlan = require("../models/SubscriptionPlan");
 const { success, error } = require("../utils/response");
 const { sendEmail } = require("../utils/emailService");
 const { formatUserResponse } = require("../utils/formatters");
@@ -47,10 +48,10 @@ function constantTimeEq(a, b) {
 // =================== REGISTER ===================
 exports.register = async (req, res, next) => {
   try {
-    console.log('📝 Register request:', {
+    console.log("📝 Register request:", {
       hasBody: !!req.body,
       bodyKeys: req.body ? Object.keys(req.body) : [],
-      contentType: req.headers['content-type']
+      contentType: req.headers["content-type"],
     });
 
     // Ensure req.body exists (only check for undefined/null, not empty objects)
@@ -94,6 +95,26 @@ exports.register = async (req, res, next) => {
       });
     }
 
+    // Get or create Free subscription plan
+    let freePlan = await SubscriptionPlan.findOne({ name: "Free" });
+    if (!freePlan) {
+      freePlan = await SubscriptionPlan.create({
+        name: "Free",
+        status: "Active",
+        price: 0,
+        billing_period: "monthly",
+        voice_minutes: 2,
+        features: ["2 voice minutes", "Basic AI companion"],
+        description: "Perfect for trying out SelfTalk",
+        is_popular: false,
+        currency: "EUR",
+      });
+    }
+
+    // Free users get one-time minutes with no expiry
+    const subscriptionStartDate = new Date();
+    const subscriptionEndDate = null; // Free users don't have expiry
+
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
@@ -103,21 +124,23 @@ exports.register = async (req, res, next) => {
       profilePicture = req.body.profilePicture.trim();
     }
 
-    // Create new user
+    // Create new user with Free subscription
     const user = await User.create({
       username: username.trim(),
       email: email.trim().toLowerCase(),
       password: hashedPassword,
       profilePicture,
-      current_subscription: null,
-      subscription_started_at: null,
+      current_subscription: freePlan._id,
+      subscription_started_at: subscriptionStartDate,
+      subscription_end_date: subscriptionEndDate,
       total_minutes: 2,
       available_minutes: 2,
       role: userRole._id,
     });
 
-    // Populate role for response
+    // Populate role and subscription for response
     await user.populate("role");
+    await user.populate("current_subscription");
 
     return success(res, 201, "User registered successfully", {
       user: formatUserResponse(user),
@@ -155,12 +178,12 @@ exports.register = async (req, res, next) => {
 // =================== UPLOAD PROFILE PICTURE (PUBLIC FOR REGISTRATION) ===================
 exports.uploadProfilePicture = async (req, res, next) => {
   try {
-    console.log('📸 Upload request:', {
+    console.log("📸 Upload request:", {
       hasFile: !!req.file,
       filename: req.file?.filename,
       originalname: req.file?.originalname,
       size: req.file?.size,
-      mimetype: req.file?.mimetype
+      mimetype: req.file?.mimetype,
     });
 
     if (!req.file) {
@@ -172,7 +195,13 @@ exports.uploadProfilePicture = async (req, res, next) => {
     // Validate file was actually saved
     const fs = require("fs");
     const path = require("path");
-    const filePath = path.join(__dirname, "..", "uploads", "profile_pics", req.file.filename);
+    const filePath = path.join(
+      __dirname,
+      "..",
+      "uploads",
+      "profile_pics",
+      req.file.filename
+    );
 
     if (!fs.existsSync(filePath)) {
       console.error("❌ File not found after upload:", filePath);
@@ -184,17 +213,16 @@ exports.uploadProfilePicture = async (req, res, next) => {
     // Just return the file path for use during registration
     const profilePicturePath = `/uploads/profile_pics/${req.file.filename}`;
 
-    console.log('✅ File uploaded successfully:', profilePicturePath);
+    console.log("✅ File uploaded successfully:", profilePicturePath);
 
     return success(res, 200, "Profile picture uploaded successfully", {
       profilePicture: profilePicturePath,
     });
   } catch (err) {
-    console.error('❌ Upload error:', err);
+    console.error("❌ Upload error:", err);
     next(err);
   }
 };
-
 
 // =================== DELETE PROFILE PICTURE ===================
 exports.deleteProfilePicture = async (userId, profilePicturePath) => {
@@ -227,13 +255,14 @@ exports.deleteProfilePicture = async (userId, profilePicturePath) => {
   }
 };
 
-
 // =================== LOGIN ===================
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email }).populate("role");
+    const user = await User.findOne({ email })
+      .populate("role")
+      .populate("current_subscription");
     if (!user) return error(res, 400, "Invalid credentials");
 
     const ok = await bcrypt.compare(password, user.password);
@@ -241,7 +270,11 @@ exports.login = async (req, res, next) => {
 
     // Check if user is suspended
     if (user.is_suspended) {
-      return error(res, 403, "Your account has been suspended. Please contact support for assistance.");
+      return error(
+        res,
+        403,
+        "Your account has been suspended. Please contact support for assistance."
+      );
     }
 
     // Generate permanent token for admin, regular expiring token for users
@@ -256,8 +289,6 @@ exports.login = async (req, res, next) => {
     next(err);
   }
 };
-
-
 
 // =================== FORGOT PASSWORD ===================
 exports.forgotPassword = async (req, res, next) => {

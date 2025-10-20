@@ -21,8 +21,8 @@ const SubscriptionPlanSchema = new mongoose.Schema(
     billing_period: {
       type: String,
       required: true,
-      enum: ["yearly", "monthly"],
-      default: "yearly",
+      enum: ["monthly"],
+      default: "monthly",
     },
     voice_minutes: {
       type: Number,

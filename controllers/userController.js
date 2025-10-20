@@ -10,7 +10,10 @@ const Notification = require("../models/Notification");
 const SubscriptionPlan = require("../models/SubscriptionPlan");
 const { success, error } = require("../utils/response");
 const { deleteProfilePicture } = require("./authController");
-const { formatDocumentResponse, formatNotificationResponse } = require("../utils/formatters");
+const {
+  formatDocumentResponse,
+  formatNotificationResponse,
+} = require("../utils/formatters");
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
 const ELEVENLABS_API_KEY =
@@ -42,6 +45,7 @@ exports.getProfile = async (req, res, next) => {
         available_minutes: user.available_minutes,
         current_subscription: user.current_subscription,
         subscription_started_at: user.subscription_started_at,
+        subscription_end_date: user.subscription_end_date,
         role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -58,7 +62,9 @@ exports.updateProfile = async (req, res, next) => {
     const { username, profilePicture, voice_id, model_id } = req.body;
     const userId = req.user.uid;
 
-    const user = await User.findById(userId).populate("role");
+    const user = await User.findById(userId)
+      .populate("role")
+      .populate("current_subscription");
     if (!user) {
       return error(res, 404, "User not found");
     }
@@ -116,6 +122,7 @@ exports.updateProfile = async (req, res, next) => {
     if (profileUpdated) {
       await user.save();
       await user.populate("role");
+      await user.populate("current_subscription");
     }
 
     return success(res, 200, "Profile updated successfully", {
@@ -130,6 +137,7 @@ exports.updateProfile = async (req, res, next) => {
         available_minutes: user.available_minutes,
         current_subscription: user.current_subscription,
         subscription_started_at: user.subscription_started_at,
+        subscription_end_date: user.subscription_end_date,
         role: user.role,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -341,7 +349,7 @@ exports.getMyNotifications = async (req, res, next) => {
     // Check subscription status
     if (user.current_subscription) {
       const plan = user.current_subscription;
-      if (plan.name.toLowerCase() === 'free') {
+      if (plan.name.toLowerCase() === "free") {
         userCategories.push("Free Users");
       } else {
         userCategories.push("Premium Users");
@@ -354,7 +362,7 @@ exports.getMyNotifications = async (req, res, next) => {
     // Build filter for notifications
     const filter = {
       target_audience: { $in: userCategories },
-      is_active: true
+      is_active: true,
     };
 
     // Get total count for pagination
@@ -369,21 +377,27 @@ exports.getMyNotifications = async (req, res, next) => {
       .skip(skip)
       .limit(limit);
 
-    return success(res, 200, "Notifications fetched successfully", {
-      notifications: notifications.map(notification => ({
-        _id: notification._id,
-        title: notification.title,
-        type: notification.type,
-        message: notification.message,
-        target_audience: notification.target_audience,
-        createdAt: notification.createdAt
-      }))
-    }, {
-      total,
-      limit,
-      totalPages,
-      currentPage: page
-    });
+    return success(
+      res,
+      200,
+      "Notifications fetched successfully",
+      {
+        notifications: notifications.map((notification) => ({
+          _id: notification._id,
+          title: notification.title,
+          type: notification.type,
+          message: notification.message,
+          target_audience: notification.target_audience,
+          createdAt: notification.createdAt,
+        })),
+      },
+      {
+        total,
+        limit,
+        totalPages,
+        currentPage: page,
+      }
+    );
   } catch (err) {
     next(err);
   }

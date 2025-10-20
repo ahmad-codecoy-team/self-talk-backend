@@ -50,6 +50,10 @@ const UserSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    subscription_end_date: {
+      type: Date,
+      default: null,
+    },
     role: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Role",

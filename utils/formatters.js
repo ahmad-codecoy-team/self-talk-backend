@@ -19,6 +19,7 @@ exports.formatUserResponse = (user) => {
     available_minutes: user.available_minutes || 0,
     current_subscription: user.current_subscription || null,
     subscription_started_at: user.subscription_started_at || null,
+    subscription_end_date: user.subscription_end_date || null,
     role: user.role || null,
     is_suspended: user.is_suspended || false,
     createdAt: user.createdAt,

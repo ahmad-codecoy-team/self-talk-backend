@@ -44,13 +44,28 @@ Register a new user account with role-based system.
       "username": "testuser",
       "email": "test@example.com",
       "profilePicture": "",
+      "voice_id": null,
+      "model_id": null,
+      "total_minutes": 2,
+      "available_minutes": 2,
+      "current_subscription": {
+        "_id": "plan_id",
+        "name": "Free",
+        "price": 0,
+        "billing_period": "monthly",
+        "voice_minutes": 2
+      },
+      "subscription_started_at": "2025-10-20T10:00:00.000Z",
+      "subscription_end_date": null,
       "role": {
         "_id": "role_id",
         "name": "user",
         "description": "Regular user with standard permissions"
-      }
-    },
-    "accessToken": "jwt_token_here"
+      },
+      "is_suspended": false,
+      "createdAt": "2025-10-20T10:00:00.000Z",
+      "updatedAt": "2025-10-20T10:00:00.000Z"
+    }
   }
 }
 ```
@@ -78,11 +93,26 @@ Login with email and password.
       "username": "testuser",
       "email": "test@example.com",
       "profilePicture": "",
+      "voice_id": null,
+      "model_id": null,
+      "total_minutes": 2,
+      "available_minutes": 2,
+      "current_subscription": {
+        "_id": "plan_id",
+        "name": "Free",
+        "price": 0,
+        "billing_period": "monthly"
+      },
+      "subscription_started_at": "2025-10-20T10:00:00.000Z",
+      "subscription_end_date": null,
       "role": {
         "_id": "role_id",
         "name": "user",
         "description": "Regular user with standard permissions"
-      }
+      },
+      "is_suspended": false,
+      "createdAt": "2025-10-20T10:00:00.000Z",
+      "updatedAt": "2025-10-20T10:00:00.000Z"
     },
     "accessToken": "jwt_token_here"
   }
@@ -109,7 +139,7 @@ Get all active subscription plans (public endpoint).
         "name": "Free",
         "status": "Active",
         "price": 0,
-        "billing_period": "yearly",
+        "billing_period": "monthly",
         "voice_minutes": 2,
         "features": ["2 voice minutes", "Basic AI companion"],
         "description": "Perfect for trying out SelfTalk",
@@ -148,16 +178,39 @@ Authorization: Bearer <token>
         "_id": "plan_id",
         "name": "Premium",
         "price": 99.9,
-        "billing_period": "yearly"
+        "billing_period": "monthly"
       },
-      "started_at": "2025-09-18T08:00:00.000Z"
+      "started_at": "2025-09-18T08:00:00.000Z",
+      "end_date": "2025-10-18T08:00:00.000Z"
+    }
+  }
+}
+```
+
+**Note:** Free plan users will have `end_date: null` as they receive one-time minutes with no expiry:
+
+```json
+{
+  "user_subscription": {
+    "voice_id": null,
+    "model_id": null,
+    "total_minutes": 2,
+    "available_minutes": 2,
+    "current_plan": {
+      "_id": "plan_id",
+      "name": "Free",
+      "price": 0,
+      "billing_period": "monthly"
+    },
+    "started_at": "2025-10-20T10:00:00.000Z",
+    "end_date": null
     }
   }
 }
 ```
 
 #### POST `/api/subscriptions/subscribe`
-Subscribe to a plan.
+Subscribe to a plan. **Note:** This replaces the current subscription completely. Any unused minutes from the previous subscription are lost.
 
 **Headers:**
 ```
@@ -183,13 +236,85 @@ Authorization: Bearer <token>
         "_id": "plan_id",
         "name": "Premium",
         "price": 99.9,
-        "billing_period": "yearly",
+        "billing_period": "monthly",
         "voice_minutes": 50
       },
-      "started_at": "2025-09-18T08:00:00.000Z",
-      "total_minutes": 52,
-      "available_minutes": 52
+      "started_at": "2025-10-20T10:00:00.000Z",
+      "end_date": "2025-11-19T10:00:00.000Z",
+      "total_minutes": 50,
+      "available_minutes": 50
     }
+  }
+}
+```
+
+#### POST `/api/subscriptions/check-expiry`
+Check if user's subscription has expired and handle automatic downgrade to Free plan.
+
+**Headers:**
+```
+Authorization: Bearer <token>
+```
+
+**Response (200) - Free plan user:**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Free plan has no expiry",
+  "data": {
+    "is_expired": false,
+    "is_free_plan": true,
+    "current_plan": {
+      "_id": "plan_id",
+      "name": "Free",
+      "price": 0,
+      "billing_period": "monthly"
+    },
+    "available_minutes": 2
+  }
+}
+```
+
+**Response (200) - Active paid subscription:**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Subscription is active",
+  "data": {
+    "is_expired": false,
+    "current_plan": {
+      "_id": "plan_id",
+      "name": "Premium",
+      "price": 99.9,
+      "billing_period": "monthly"
+    },
+    "end_date": "2025-11-19T10:00:00.000Z",
+    "available_minutes": 45
+  }
+}
+```
+
+**Response (200) - Expired subscription (auto-downgraded to Free):**
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Subscription expired. Downgraded to Free plan",
+  "data": {
+    "is_expired": true,
+    "was_downgraded": true,
+    "current_plan": {
+      "_id": "plan_id",
+      "name": "Free",
+      "price": 0,
+      "billing_period": "monthly"
+    },
+    "started_at": "2025-11-19T10:00:00.000Z",
+    "end_date": null,
+    "total_minutes": 2,
+    "available_minutes": 2
   }
 }
 ```
