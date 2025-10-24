@@ -95,8 +95,28 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    // Get or create Free subscription plan
-    let freePlan = await SubscriptionPlan.findOne({ name: "Free" });
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+    // Handle profile picture - use provided path or empty string
+    let profilePicture = "";
+    if (req.body.profilePicture && req.body.profilePicture.trim() !== "") {
+      profilePicture = req.body.profilePicture.trim();
+    }
+
+    // Create new user first
+    const user = await User.create({
+      username: username.trim(),
+      email: email.trim().toLowerCase(),
+      password: hashedPassword,
+      profilePicture,
+      role: userRole._id,
+    });
+
+    // Get or create Free subscription plan for this user
+    let freePlan = await SubscriptionPlan.findOne({
+      name: "Free",
+    });
     if (!freePlan) {
       freePlan = await SubscriptionPlan.create({
         name: "Free",
@@ -108,35 +128,17 @@ exports.register = async (req, res, next) => {
         description: "Perfect for trying out SelfTalk",
         is_popular: false,
         currency: "EUR",
+        total_minutes: 2,
+        available_minutes: 2,
+        user_id: user._id,
+        subscription_started_at: new Date(),
+        subscription_end_date: null, // Free users don't have expiry
       });
     }
 
-    // Free users get one-time minutes with no expiry
-    const subscriptionStartDate = new Date();
-    const subscriptionEndDate = null; // Free users don't have expiry
-
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
-
-    // Handle profile picture - use provided path or empty string
-    let profilePicture = "";
-    if (req.body.profilePicture && req.body.profilePicture.trim() !== "") {
-      profilePicture = req.body.profilePicture.trim();
-    }
-
-    // Create new user with Free subscription
-    const user = await User.create({
-      username: username.trim(),
-      email: email.trim().toLowerCase(),
-      password: hashedPassword,
-      profilePicture,
-      current_subscription: freePlan._id,
-      subscription_started_at: subscriptionStartDate,
-      subscription_end_date: subscriptionEndDate,
-      total_minutes: 2,
-      available_minutes: 2,
-      role: userRole._id,
-    });
+    // Update user with subscription reference
+    user.current_subscription = freePlan._id;
+    await user.save();
 
     // Populate role and subscription for response
     await user.populate("role");

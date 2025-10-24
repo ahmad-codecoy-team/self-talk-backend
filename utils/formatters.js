@@ -15,11 +15,7 @@ exports.formatUserResponse = (user) => {
     profilePicture: user.profilePicture || "",
     voice_id: user.voice_id || null,
     model_id: user.model_id || null,
-    total_minutes: user.total_minutes || 0,
-    available_minutes: user.available_minutes || 0,
     current_subscription: user.current_subscription || null,
-    subscription_started_at: user.subscription_started_at || null,
-    subscription_end_date: user.subscription_end_date || null,
     role: user.role || null,
     is_suspended: user.is_suspended || false,
     createdAt: user.createdAt,
@@ -46,6 +42,11 @@ exports.formatPlanResponse = (plan) => {
     description: plan.description || "",
     is_popular: plan.is_popular || false,
     currency: plan.currency || "EUR",
+    total_minutes: plan.total_minutes || 0,
+    available_minutes: plan.available_minutes || 0,
+    user_id: plan.user_id || null,
+    subscription_started_at: plan.subscription_started_at || null,
+    subscription_end_date: plan.subscription_end_date || null,
     createdAt: plan.createdAt,
     updatedAt: plan.updatedAt
   };

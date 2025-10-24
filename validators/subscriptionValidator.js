@@ -18,7 +18,10 @@ const createPlanValidation = [
     .bail()
     .trim()
     .isLength({ min: 1 })
-    .withMessage("Plan name cannot be empty"),
+    .withMessage("Plan name cannot be empty")
+    .bail()
+    .isIn(["Free", "Premium", "Super"])
+    .withMessage("Plan name must be Free, Premium, or Super"),
   body("status")
     .optional()
     .custom(notArray)
@@ -106,6 +109,30 @@ const createPlanValidation = [
     .trim()
     .isLength({ min: 1 })
     .withMessage("Currency cannot be empty"),
+  body("user_id")
+    .exists({ checkFalsy: true })
+    .withMessage("User ID is required")
+    .bail()
+    .isMongoId()
+    .withMessage("User ID must be a valid MongoDB ObjectId"),
+  body("total_minutes")
+    .exists({ checkFalsy: false })
+    .withMessage("Total minutes is required")
+    .bail()
+    .custom(notArray)
+    .withMessage("Total minutes must not be an array")
+    .bail()
+    .isInt({ min: 0 })
+    .withMessage("Total minutes must be a non-negative integer"),
+  body("available_minutes")
+    .exists({ checkFalsy: false })
+    .withMessage("Available minutes is required")
+    .bail()
+    .custom(notArray)
+    .withMessage("Available minutes must not be an array")
+    .bail()
+    .isInt({ min: 0 })
+    .withMessage("Available minutes must be a non-negative integer"),
 ];
 
 // Validation for updating a subscription plan
@@ -123,7 +150,10 @@ const updatePlanValidation = [
     .bail()
     .trim()
     .isLength({ min: 1 })
-    .withMessage("Plan name cannot be empty"),
+    .withMessage("Plan name cannot be empty")
+    .bail()
+    .isIn(["Free", "Premium", "Super"])
+    .withMessage("Plan name must be Free, Premium, or Super"),
   body("status")
     .optional()
     .isIn(["Active", "Inactive"])
@@ -173,6 +203,20 @@ const updatePlanValidation = [
     .trim()
     .isLength({ min: 1 })
     .withMessage("Currency cannot be empty"),
+  body("total_minutes")
+    .optional()
+    .custom(notArray)
+    .withMessage("Total minutes must not be an array")
+    .bail()
+    .isInt({ min: 0 })
+    .withMessage("Total minutes must be a non-negative integer"),
+  body("available_minutes")
+    .optional()
+    .custom(notArray)
+    .withMessage("Available minutes must not be an array")
+    .bail()
+    .isInt({ min: 0 })
+    .withMessage("Available minutes must be a non-negative integer"),
 ];
 
 // Validation for subscribing to a plan

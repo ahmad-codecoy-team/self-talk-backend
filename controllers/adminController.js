@@ -8,14 +8,18 @@ const { formatUserResponse, formatPlanResponse, formatFAQResponse, formatDocumen
 
 // =================== ADMIN SUBSCRIPTION PLAN MANAGEMENT ===================
 
-// CREATE - Create a new subscription plan (Admin only)
+// CREATE - Create a new subscription plan for a specific user (Admin only)
 exports.createPlan = async (req, res, next) => {
   try {
-    const { name, status, price, billing_period, voice_minutes, features, description, is_popular, currency } = req.body;
+    const { name, status, price, billing_period, voice_minutes, features, description, is_popular, currency, user_id, total_minutes, available_minutes } = req.body;
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return error(res, 400, "Plan name is required and must be a non-empty string");
+    }
+
+    if (!["Free", "Premium", "Super"].includes(name)) {
+      return error(res, 400, "Plan name must be Free, Premium, or Super");
     }
 
     if (status && !["Active", "Inactive"].includes(status)) {
@@ -42,10 +46,36 @@ exports.createPlan = async (req, res, next) => {
       return error(res, 400, "Description is required");
     }
 
-    // Check if plan with same name already exists
-    const existingPlan = await SubscriptionPlan.findOne({ name });
+    if (!user_id) {
+      return error(res, 400, "User ID is required");
+    }
+
+    if (total_minutes === undefined || total_minutes < 0) {
+      return error(res, 400, "Total minutes is required and must be >= 0");
+    }
+
+    if (available_minutes === undefined || available_minutes < 0) {
+      return error(res, 400, "Available minutes is required and must be >= 0");
+    }
+
+    // Verify user exists
+    const user = await User.findById(user_id);
+    if (!user) {
+      return error(res, 404, "User not found");
+    }
+
+    // Check if user already has a plan of this type
+    const existingPlan = await SubscriptionPlan.findOne({ name, user_id });
     if (existingPlan) {
-      return error(res, 409, `Plan with name '${name}' already exists`);
+      return error(res, 409, `User already has a '${name}' plan. Delete the existing plan first or update it.`);
+    }
+
+    // Delete user's current subscription if switching plans
+    if (user.current_subscription) {
+      await SubscriptionPlan.deleteOne({ 
+        _id: user.current_subscription, 
+        user_id: user_id 
+      });
     }
 
     const plan = await SubscriptionPlan.create({
@@ -58,7 +88,20 @@ exports.createPlan = async (req, res, next) => {
       description,
       is_popular: is_popular || false,
       currency: currency || "EUR",
+      total_minutes,
+      available_minutes,
+      user_id,
+      subscription_started_at: new Date(),
+      subscription_end_date: name.toLowerCase() === "free" ? null : (() => {
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + 30);
+        return endDate;
+      })(),
     });
+
+    // Update user's current subscription reference
+    user.current_subscription = plan._id;
+    await user.save();
 
     return success(res, 201, "Subscription plan created successfully", {
       plan: formatPlanResponse(plan)
@@ -68,17 +111,25 @@ exports.createPlan = async (req, res, next) => {
   }
 };
 
-// READ - Get all subscription plans
+// READ - Get all subscription plans (grouped by user or show all)
 exports.getAllPlans = async (req, res, next) => {
   try {
-    const { status } = req.query;
+    const { status, user_id, template_only } = req.query;
 
     let filter = {};
     if (status && ["Active", "Inactive"].includes(status)) {
       filter.status = status;
     }
 
-    const plans = await SubscriptionPlan.find(filter).sort({ createdAt: 1 });
+    if (user_id) {
+      filter.user_id = user_id;
+    }
+
+    // If template_only is true, we could show unique plan types
+    // For now, just return all plans matching the filter
+    const plans = await SubscriptionPlan.find(filter)
+      .populate('user_id', 'username email')
+      .sort({ createdAt: -1 });
 
     return success(res, 200, "Subscription plans fetched successfully", {
       plans: plans.map(plan => formatPlanResponse(plan))

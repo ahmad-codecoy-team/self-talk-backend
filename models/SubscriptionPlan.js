@@ -5,6 +5,7 @@ const SubscriptionPlanSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
+      enum: ["Free", "Premium", "Super"],
       trim: true,
     },
     status: {
@@ -48,6 +49,29 @@ const SubscriptionPlanSchema = new mongoose.Schema(
       required: true,
       default: "EUR",
       trim: true,
+    },
+    total_minutes: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    available_minutes: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    user_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    subscription_started_at: {
+      type: Date,
+      default: Date.now,
+    },
+    subscription_end_date: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }
