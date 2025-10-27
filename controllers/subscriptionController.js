@@ -1,18 +1,19 @@
 const SubscriptionPlan = require("../models/SubscriptionPlan");
+const UserSubscription = require("../models/UserSubscription");
 const User = require("../models/User");
 const { success, error } = require("../utils/response");
-const { formatPlanResponse } = require("../utils/formatters");
+const { formatUserResponse } = require("../utils/formatters");
 
 // =================== USER SUBSCRIPTION MANAGEMENT ===================
 
-// GET - Get user's current subscription details
+// GET - Get user's current subscription details with full user profile
 exports.getUserSubscription = async (req, res, next) => {
   try {
     const userId = req.user.uid;
 
     const user = await User.findById(userId)
-      // .select("voice_id model_id current_subscription")
-      .select("current_subscription")
+      .select("-password")
+      .populate("role")
       .populate("current_subscription");
 
     if (!user) {
@@ -20,139 +21,94 @@ exports.getUserSubscription = async (req, res, next) => {
     }
 
     return success(res, 200, "User subscription details fetched successfully", {
-      current_plan: user.current_subscription
-        ? formatPlanResponse(user.current_subscription)
-        : null,
+      user: formatUserResponse(user),
     });
   } catch (err) {
     next(err);
   }
 };
 
-// POST - Subscribe user to a plan
-exports.subscribeToPlan = async (req, res, next) => {
+// POST - Buy/Subscribe to a plan (replaces old subscription completely)
+exports.buySubscription = async (req, res, next) => {
   try {
     const userId = req.user.uid;
-    const { plan_id } = req.body;
+    const { name } = req.body;
 
-    if (!plan_id) {
-      return error(res, 400, "Plan ID is required");
+    if (!name) {
+      return error(res, 400, "Plan name is required");
     }
 
-    // Define plan templates (since we're using plan names now)
-    const planTemplates = {
-      free: {
-        name: "Free",
-        status: "Active",
-        price: 0,
-        billing_period: "monthly",
-        voice_minutes: 2,
-        features: ["2 voice minutes", "Basic AI companion"],
-        description: "Perfect for trying out SelfTalk",
-        is_popular: false,
-        currency: "EUR",
-      },
-      premium: {
-        name: "Premium",
-        status: "Active",
-        price: 9.99,
-        billing_period: "monthly",
-        voice_minutes: 100,
-        features: [
-          "100 voice minutes",
-          "Premium AI companion",
-          "Priority support",
-        ],
-        description: "Perfect for regular users",
-        is_popular: true,
-        currency: "EUR",
-      },
-      super: {
-        name: "Super",
-        status: "Active",
-        price: 19.99,
-        billing_period: "monthly",
-        voice_minutes: 500,
-        features: [
-          "500 voice minutes",
-          "Super AI companion",
-          "24/7 support",
-          "Advanced features",
-        ],
-        description: "Perfect for power users",
-        is_popular: false,
-        currency: "EUR",
-      },
-    };
-
-    // Get the plan template by plan_id (which should be the plan name)
-    const basePlan = planTemplates[plan_id.toLowerCase()];
-    if (!basePlan) {
+    // Validate plan name
+    const validPlans = ["Free", "Premium", "Super"];
+    if (!validPlans.includes(name)) {
       return error(
         res,
-        404,
-        "Subscription plan not found. Valid plans: free, premium, super"
+        400,
+        "Invalid plan name. Valid plans: Free, Premium, Super"
       );
     }
 
-    const user = await User.findById(userId);
+    // Find the plan template from database
+    const planTemplate = await SubscriptionPlan.findOne({ name });
+    if (!planTemplate) {
+      return error(res, 404, `${name} plan template not found in database`);
+    }
+
+    const user = await User.findById(userId).populate("role");
     if (!user) {
       return error(res, 404, "User not found");
     }
 
-    // Delete old subscription plan for this user if exists
+    // Delete old user subscription (user loses everything from previous subscription)
     if (user.current_subscription) {
-      await SubscriptionPlan.deleteOne({
-        _id: user.current_subscription,
-        user_id: userId,
-      });
+      await UserSubscription.deleteOne({ _id: user.current_subscription });
     }
 
-    // Set subscription end date only for paid plans
-    let subscriptionEndDate = null;
-    if (basePlan.name.toLowerCase() !== "free") {
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 30);
-      subscriptionEndDate = endDate;
-    }
+    // Calculate subscription dates
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setMonth(endDate.getMonth() + 1); // Add 1 month for all plans including Free
 
-    // Create new subscription plan instance for this user
-    const userSubscriptionPlan = await SubscriptionPlan.create({
-      name: basePlan.name,
-      status: basePlan.status,
-      price: basePlan.price,
-      billing_period: basePlan.billing_period,
-      voice_minutes: basePlan.voice_minutes,
-      features: basePlan.features,
-      description: basePlan.description,
-      is_popular: basePlan.is_popular,
-      currency: basePlan.currency,
-      total_minutes: basePlan.voice_minutes,
-      available_minutes: basePlan.voice_minutes,
-      user_id: userId,
-      subscription_started_at: new Date(),
-      subscription_end_date: subscriptionEndDate,
+    // Get minutes based on plan template
+    const minutes = planTemplate.voice_minutes;
+
+    // Create new user subscription
+    const newUserSubscription = await UserSubscription.create({
+      plan_id: planTemplate._id,
+      name: planTemplate.name,
+      status: planTemplate.status,
+      price: planTemplate.price,
+      billing_period: planTemplate.billing_period,
+      features: planTemplate.features,
+      description: planTemplate.description,
+      is_popular: planTemplate.is_popular,
+      currency: planTemplate.currency,
+      total_minutes: minutes,
+      available_minutes: minutes,
+      recordings: [],
+      subscription_started_at: now,
+      subscription_end_date: endDate,
     });
 
-    // Update user's current subscription reference
-    user.current_subscription = userSubscriptionPlan._id;
+    // Update user's subscription reference
+    user.current_subscription = newUserSubscription._id;
     await user.save();
 
-    // Populate the plan details for response
-    await user.populate("current_subscription");
+    // Reload user with populated subscription
+    const updatedUser = await User.findById(userId)
+      .select("-password")
+      .populate("role")
+      .populate("current_subscription");
 
     return success(res, 200, "Successfully subscribed to plan", {
-      user_subscription: {
-        current_plan: formatPlanResponse(user.current_subscription),
-        subscription_details: formatPlanResponse(userSubscriptionPlan),
-      },
+      user: formatUserResponse(updatedUser),
     });
   } catch (err) {
     next(err);
   }
 };
 
-// POST - Add minutes to user account (can be used for separate minute purchases)
+// POST - Add minutes to user account (for purchasing additional minutes at 0.99€ per minute)
 exports.addMinutes = async (req, res, next) => {
   try {
     const userId = req.user.uid;
@@ -162,7 +118,10 @@ exports.addMinutes = async (req, res, next) => {
       return error(res, 400, "Minutes must be a positive number");
     }
 
-    const user = await User.findById(userId).populate("current_subscription");
+    const user = await User.findById(userId)
+      .populate("role")
+      .populate("current_subscription");
+
     if (!user) {
       return error(res, 404, "User not found");
     }
@@ -171,33 +130,22 @@ exports.addMinutes = async (req, res, next) => {
       return error(res, 400, "User has no active subscription");
     }
 
-    // Find the user's subscription plan
-    const subscriptionPlan = await SubscriptionPlan.findOne({
-      _id: user.current_subscription._id,
-      // user_id: userId
-    });
+    const userSubscription = user.current_subscription;
 
-    if (!subscriptionPlan) {
-      return error(res, 404, "Subscription plan not found");
-    }
-
-    // Add minutes to both total and available in the subscription plan
-    subscriptionPlan.total_minutes += minutes;
-    subscriptionPlan.available_minutes += minutes;
-
-    await subscriptionPlan.save();
+    // Add minutes to both total and available
+    userSubscription.total_minutes += minutes;
+    userSubscription.available_minutes += minutes;
+    await userSubscription.save();
 
     return success(res, 200, "Minutes added successfully", {
-      added_minutes: minutes,
-      total_minutes: subscriptionPlan.total_minutes,
-      available_minutes: subscriptionPlan.available_minutes,
+      user: formatUserResponse(user),
     });
   } catch (err) {
     next(err);
   }
 };
 
-// GET - Get all active plans (for users to see available options)
+// GET - Get all active plan templates (for users to see available options)
 exports.getActivePlans = async (req, res, next) => {
   try {
     const plans = await SubscriptionPlan.find({ status: "Active" }).sort({
@@ -205,19 +153,35 @@ exports.getActivePlans = async (req, res, next) => {
     });
 
     return success(res, 200, "Active subscription plans fetched successfully", {
-      plans: plans.map((plan) => formatPlanResponse(plan)),
+      plans: plans.map((plan) => ({
+        _id: plan._id,
+        name: plan.name,
+        status: plan.status,
+        price: plan.price,
+        billing_period: plan.billing_period,
+        features: plan.features,
+        description: plan.description,
+        is_popular: plan.is_popular,
+        currency: plan.currency,
+        voice_minutes: plan.voice_minutes,
+        createdAt: plan.createdAt,
+        updatedAt: plan.updatedAt,
+      })),
     });
   } catch (err) {
     next(err);
   }
 };
 
-// POST - Check and handle subscription expiry
+// POST - Check and handle subscription expiry (always downgrades to Free and adds 2 minutes)
 exports.checkSubscriptionExpiry = async (req, res, next) => {
   try {
     const userId = req.user.uid;
 
-    const user = await User.findById(userId).populate("current_subscription");
+    const user = await User.findById(userId)
+      .populate("role")
+      .populate("current_subscription");
+
     if (!user) {
       return error(res, 404, "User not found");
     }
@@ -226,72 +190,93 @@ exports.checkSubscriptionExpiry = async (req, res, next) => {
       return error(res, 400, "User has no active subscription");
     }
 
-    // Get the user's subscription plan details
-    const userSubscription = await SubscriptionPlan.findOne({
-      _id: user.current_subscription._id,
-      // user_id: userId,
-    });
+    const currentSubscription = user.current_subscription;
 
-    if (!userSubscription) {
-      return error(res, 404, "User subscription details not found");
+    // Find Free plan template
+    const freePlanTemplate = await SubscriptionPlan.findOne({ name: "Free" });
+    if (!freePlanTemplate) {
+      return error(res, 404, "Free plan template not found in database");
     }
 
-    // Free users don't have expiry (one-time minutes)
-    if (userSubscription.name.toLowerCase() === "free") {
-      return success(res, 200, "Free plan has no expiry", {
-        is_expired: false,
-        is_free_plan: true,
-        current_plan: formatPlanResponse(user.current_subscription),
-      });
-    }
+    // Delete current user subscription
+    await UserSubscription.deleteOne({ _id: currentSubscription._id });
 
-    // Check if subscription has expired (only for paid plans)
+    // Calculate new dates (1 month from now)
     const now = new Date();
-    const isExpired =
-      userSubscription.subscription_end_date &&
-      userSubscription.subscription_end_date < now;
+    const endDate = new Date(now);
+    endDate.setMonth(endDate.getMonth() + 1);
 
-    if (!isExpired) {
-      // Subscription is still active
-      return success(res, 200, "Subscription is active", {
-        is_expired: false,
-        current_plan: formatPlanResponse(user.current_subscription),
-        subscription_details: formatPlanResponse(userSubscription),
-      });
-    }
-
-    // Subscription has expired - downgrade to Free plan
-    // Delete the expired subscription
-    await SubscriptionPlan.deleteOne({ _id: userSubscription._id });
-
-    // Create new Free plan for user
-    const freeSubscription = await SubscriptionPlan.create({
-      name: "Free",
-      status: "Active",
-      price: 0,
-      billing_period: "monthly",
-      voice_minutes: 2,
-      features: ["2 voice minutes", "Basic AI companion"],
-      description: "Perfect for trying out SelfTalk",
-      is_popular: false,
-      currency: "EUR",
+    // Create new Free user subscription with 2 minutes
+    const newFreeSubscription = await UserSubscription.create({
+      plan_id: freePlanTemplate._id,
+      name: freePlanTemplate.name,
+      status: freePlanTemplate.status,
+      price: freePlanTemplate.price,
+      billing_period: freePlanTemplate.billing_period,
+      features: freePlanTemplate.features,
+      description: freePlanTemplate.description,
+      is_popular: freePlanTemplate.is_popular,
+      currency: freePlanTemplate.currency,
       total_minutes: 2,
       available_minutes: 2,
-      user_id: userId,
+      recordings: [],
       subscription_started_at: now,
-      subscription_end_date: null, // Free plan has no expiry
+      subscription_end_date: endDate,
     });
 
     // Update user's subscription reference
-    user.current_subscription = freeSubscription._id;
+    user.current_subscription = newFreeSubscription._id;
     await user.save();
-    await user.populate("current_subscription");
 
-    return success(res, 200, "Subscription expired. Downgraded to Free plan", {
-      is_expired: true,
-      was_downgraded: true,
-      current_plan: formatPlanResponse(user.current_subscription),
-      subscription_details: formatPlanResponse(freeSubscription),
+    // Reload user with populated subscription
+    const updatedUser = await User.findById(userId)
+      .select("-password")
+      .populate("role")
+      .populate("current_subscription");
+
+    return success(res, 200, "Downgraded to Free plan with 2 minutes", {
+      user: formatUserResponse(updatedUser),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST - Update recordings in user's subscription (internal use only)
+exports.updateRecordings = async (req, res, next) => {
+  try {
+    const userId = req.user.uid;
+    const { recordings } = req.body;
+
+    if (!recordings || !Array.isArray(recordings)) {
+      return error(res, 400, "Recordings must be an array");
+    }
+
+    // Validate all recordings are strings
+    if (!recordings.every((r) => typeof r === "string")) {
+      return error(res, 400, "All recording IDs must be strings");
+    }
+
+    const user = await User.findById(userId)
+      .populate("role")
+      .populate("current_subscription");
+
+    if (!user) {
+      return error(res, 404, "User not found");
+    }
+
+    if (!user.current_subscription) {
+      return error(res, 400, "User has no active subscription");
+    }
+
+    const userSubscription = user.current_subscription;
+
+    // Update recordings
+    userSubscription.recordings = recordings;
+    await userSubscription.save();
+
+    return success(res, 200, "Recordings updated successfully", {
+      user: formatUserResponse(user),
     });
   } catch (err) {
     next(err);

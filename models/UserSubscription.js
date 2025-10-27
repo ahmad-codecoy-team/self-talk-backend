@@ -1,7 +1,12 @@
 const mongoose = require("mongoose");
 
-const SubscriptionPlanSchema = new mongoose.Schema(
+const UserSubscriptionSchema = new mongoose.Schema(
   {
+    plan_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SubscriptionPlan",
+      required: true,
+    },
     name: {
       type: String,
       required: true,
@@ -45,17 +50,34 @@ const SubscriptionPlanSchema = new mongoose.Schema(
       default: "EUR",
       trim: true,
     },
-    voice_minutes: {
+    total_minutes: {
       type: Number,
       required: true,
       min: 0,
+    },
+    available_minutes: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    recordings: {
+      type: [String],
+      default: [],
+    },
+    subscription_started_at: {
+      type: Date,
+      default: Date.now,
+    },
+    subscription_end_date: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }
 );
 
-// Index for efficient queries - name must be unique for plan templates
-SubscriptionPlanSchema.index({ name: 1 }, { unique: true });
-SubscriptionPlanSchema.index({ status: 1 });
+// Index for efficient queries
+UserSubscriptionSchema.index({ status: 1 });
+UserSubscriptionSchema.index({ subscription_end_date: 1 });
 
-module.exports = mongoose.model("SubscriptionPlan", SubscriptionPlanSchema);
+module.exports = mongoose.model("UserSubscription", UserSubscriptionSchema);

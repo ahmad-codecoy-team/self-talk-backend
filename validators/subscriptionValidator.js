@@ -4,7 +4,6 @@ const { body, param } = require("express-validator");
 const isPlainString = (v) => typeof v === "string";
 const notArray = (v) => !Array.isArray(v);
 
-// Validation for creating a subscription plan
 const createPlanValidation = [
   body("name")
     .exists({ checkFalsy: true })
@@ -22,6 +21,7 @@ const createPlanValidation = [
     .bail()
     .isIn(["Free", "Premium", "Super"])
     .withMessage("Plan name must be Free, Premium, or Super"),
+
   body("status")
     .optional()
     .custom(notArray)
@@ -32,6 +32,7 @@ const createPlanValidation = [
     .bail()
     .isIn(["Active", "Inactive"])
     .withMessage("Status must be Active or Inactive"),
+
   body("price")
     .exists({ checkFalsy: false })
     .withMessage("Price is required")
@@ -39,11 +40,9 @@ const createPlanValidation = [
     .custom(notArray)
     .withMessage("Price must not be an array")
     .bail()
-    .isNumeric()
-    .withMessage("Price must be a number")
-    .bail()
     .isFloat({ min: 0 })
     .withMessage("Price must be >= 0"),
+
   body("billing_period")
     .exists({ checkFalsy: true })
     .withMessage("Billing period is required")
@@ -56,21 +55,34 @@ const createPlanValidation = [
     .bail()
     .isIn(["yearly", "monthly"])
     .withMessage("Billing period must be yearly or monthly"),
-  body("voice_minutes")
+
+  body("total_minutes")
     .exists({ checkFalsy: false })
-    .withMessage("Voice minutes is required")
+    .withMessage("Total minutes is required")
     .bail()
     .custom(notArray)
-    .withMessage("Voice minutes must not be an array")
+    .withMessage("Total minutes must not be an array")
     .bail()
     .isInt({ min: 0 })
-    .withMessage("Voice minutes must be a non-negative integer"),
+    .withMessage("Total minutes must be a non-negative integer"),
+
+  body("available_minutes")
+    .exists({ checkFalsy: false })
+    .withMessage("Available minutes is required")
+    .bail()
+    .custom(notArray)
+    .withMessage("Available minutes must not be an array")
+    .bail()
+    .isInt({ min: 0 })
+    .withMessage("Available minutes must be a non-negative integer"),
+
   body("features")
     .exists({ checkFalsy: true })
     .withMessage("Features are required")
     .bail()
     .isArray({ min: 1 })
     .withMessage("Features must be a non-empty array"),
+
   body("features.*")
     .custom(isPlainString)
     .withMessage("Each feature must be a string")
@@ -78,6 +90,7 @@ const createPlanValidation = [
     .trim()
     .isLength({ min: 1 })
     .withMessage("Each feature must be a non-empty string"),
+
   body("description")
     .exists({ checkFalsy: true })
     .withMessage("Description is required")
@@ -91,13 +104,7 @@ const createPlanValidation = [
     .trim()
     .isLength({ min: 1 })
     .withMessage("Description cannot be empty"),
-  body("is_popular")
-    .optional()
-    .custom(notArray)
-    .withMessage("is_popular must not be an array")
-    .bail()
-    .isBoolean()
-    .withMessage("is_popular must be a boolean"),
+
   body("currency")
     .optional()
     .custom(notArray)
@@ -109,37 +116,19 @@ const createPlanValidation = [
     .trim()
     .isLength({ min: 1 })
     .withMessage("Currency cannot be empty"),
-  body("user_id")
-    .exists({ checkFalsy: true })
-    .withMessage("User ID is required")
-    .bail()
-    .isMongoId()
-    .withMessage("User ID must be a valid MongoDB ObjectId"),
-  body("total_minutes")
-    .exists({ checkFalsy: false })
-    .withMessage("Total minutes is required")
-    .bail()
+
+  body("is_popular")
+    .optional()
     .custom(notArray)
-    .withMessage("Total minutes must not be an array")
+    .withMessage("is_popular must not be an array")
     .bail()
-    .isInt({ min: 0 })
-    .withMessage("Total minutes must be a non-negative integer"),
-  body("available_minutes")
-    .exists({ checkFalsy: false })
-    .withMessage("Available minutes is required")
-    .bail()
-    .custom(notArray)
-    .withMessage("Available minutes must not be an array")
-    .bail()
-    .isInt({ min: 0 })
-    .withMessage("Available minutes must be a non-negative integer"),
+    .isBoolean()
+    .withMessage("is_popular must be a boolean"),
 ];
 
 // Validation for updating a subscription plan
 const updatePlanValidation = [
-  param("id")
-    .isMongoId()
-    .withMessage("Invalid plan ID"),
+  param("id").isMongoId().withMessage("Invalid plan ID"),
   body("name")
     .optional()
     .custom(notArray)
@@ -219,24 +208,55 @@ const updatePlanValidation = [
     .withMessage("Available minutes must be a non-negative integer"),
 ];
 
-// Validation for subscribing to a plan
-const subscribeValidation = [
-  body("plan_id")
-    .isMongoId()
-    .withMessage("Invalid plan ID"),
+// Validation for buying/subscribing to a plan
+const buySubscriptionValidation = [
+  body("name")
+    .exists({ checkFalsy: true })
+    .withMessage("Plan name is required")
+    .bail()
+    .custom(notArray)
+    .withMessage("Plan name must not be an array")
+    .bail()
+    .custom(isPlainString)
+    .withMessage("Plan name must be a string")
+    .bail()
+    .trim()
+    .isIn(["Free", "Premium", "Super"])
+    .withMessage("Plan name must be Free, Premium, or Super"),
 ];
 
 // Validation for adding minutes
 const addMinutesValidation = [
   body("minutes")
+    .exists({ checkFalsy: true })
+    .withMessage("Minutes is required")
+    .bail()
+    .custom(notArray)
+    .withMessage("Minutes must not be an array")
+    .bail()
     .isInt({ min: 1 })
     .withMessage("Minutes must be a positive integer"),
 ];
 
+// Validation for updating recordings
+const updateRecordingsValidation = [
+  body("recordings")
+    .exists()
+    .withMessage("Recordings is required")
+    .bail()
+    .isArray()
+    .withMessage("Recordings must be an array")
+    .bail()
+    .custom((recordings) => {
+      return recordings.every((r) => typeof r === "string");
+    })
+    .withMessage("All recording IDs must be strings"),
+];
 
 module.exports = {
   createPlanValidation,
   updatePlanValidation,
-  subscribeValidation,
+  buySubscriptionValidation,
   addMinutesValidation,
+  updateRecordingsValidation,
 };

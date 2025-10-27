@@ -2,17 +2,16 @@ const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const axios = require("axios");
 const User = require("../models/User");
-const Message = require("../models/Message");
 const Conversation = require("../models/Conversation");
+const Message = require("../models/Message");
 const OTP = require("../models/OTP");
 const Document = require("../models/Document");
 const Notification = require("../models/Notification");
-const SubscriptionPlan = require("../models/SubscriptionPlan");
 const { success, error } = require("../utils/response");
-const { deleteProfilePicture } = require("./authController");
 const {
   formatDocumentResponse,
   formatNotificationResponse,
+  formatUserResponse,
 } = require("../utils/formatters");
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
@@ -34,18 +33,7 @@ exports.getProfile = async (req, res, next) => {
     }
 
     return success(res, 200, "User profile fetched successfully", {
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        profilePicture: user.profilePicture,
-        voice_id: user.voice_id,
-        model_id: user.model_id,
-        current_subscription: user.current_subscription,
-        role: user.role,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      user: formatUserResponse(user),
     });
   } catch (err) {
     next(err);
@@ -122,18 +110,7 @@ exports.updateProfile = async (req, res, next) => {
     }
 
     return success(res, 200, "Profile updated successfully", {
-      user: {
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        profilePicture: user.profilePicture,
-        voice_id: user.voice_id,
-        model_id: user.model_id,
-        current_subscription: user.current_subscription,
-        role: user.role,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      user: formatUserResponse(user),
     });
   } catch (err) {
     next(err);

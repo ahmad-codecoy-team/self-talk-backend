@@ -8,6 +8,9 @@
 exports.formatUserResponse = (user) => {
   if (!user) return null;
 
+  // Forward declare to avoid circular dependency
+  const formatUserSubscriptionResponse = exports.formatUserSubscriptionResponse;
+
   return {
     _id: user._id,
     username: user.username,
@@ -15,11 +18,13 @@ exports.formatUserResponse = (user) => {
     profilePicture: user.profilePicture || "",
     voice_id: user.voice_id || null,
     model_id: user.model_id || null,
-    current_subscription: user.current_subscription || null,
+    current_subscription: user.current_subscription
+      ? formatUserSubscriptionResponse(user.current_subscription)
+      : null,
     role: user.role || null,
     is_suspended: user.is_suspended || false,
     createdAt: user.createdAt,
-    updatedAt: user.updatedAt
+    updatedAt: user.updatedAt,
   };
 };
 
@@ -37,18 +42,41 @@ exports.formatPlanResponse = (plan) => {
     status: plan.status,
     price: plan.price,
     billing_period: plan.billing_period,
-    voice_minutes: plan.voice_minutes,
     features: plan.features || [],
     description: plan.description || "",
     is_popular: plan.is_popular || false,
     currency: plan.currency || "EUR",
-    total_minutes: plan.total_minutes || 0,
-    available_minutes: plan.available_minutes || 0,
-    user_id: plan.user_id || null,
-    subscription_started_at: plan.subscription_started_at || null,
-    subscription_end_date: plan.subscription_end_date || null,
+    voice_minutes: plan.voice_minutes || 0,
     createdAt: plan.createdAt,
-    updatedAt: plan.updatedAt
+    updatedAt: plan.updatedAt,
+  };
+};
+
+/**
+ * Format UserSubscription object for API responses
+ * @param {Object} userSubscription - UserSubscription object from database
+ * @returns {Object} - Formatted user subscription object
+ */
+exports.formatUserSubscriptionResponse = (userSubscription) => {
+  if (!userSubscription) return null;
+
+  return {
+    _id: userSubscription._id,
+    name: userSubscription.name,
+    status: userSubscription.status,
+    price: userSubscription.price,
+    billing_period: userSubscription.billing_period,
+    features: userSubscription.features || [],
+    description: userSubscription.description || "",
+    is_popular: userSubscription.is_popular || false,
+    currency: userSubscription.currency || "EUR",
+    total_minutes: userSubscription.total_minutes || 0,
+    available_minutes: userSubscription.available_minutes || 0,
+    recordings: userSubscription.recordings || [],
+    subscription_started_at: userSubscription.subscription_started_at || null,
+    subscription_end_date: userSubscription.subscription_end_date || null,
+    createdAt: userSubscription.createdAt,
+    updatedAt: userSubscription.updatedAt,
   };
 };
 
@@ -66,7 +94,7 @@ exports.formatFAQResponse = (faq) => {
     question: faq.question,
     answer: faq.answer,
     createdAt: faq.createdAt,
-    updatedAt: faq.updatedAt
+    updatedAt: faq.updatedAt,
   };
 };
 
@@ -87,7 +115,7 @@ exports.formatDocumentResponse = (document) => {
     isPublished: document.isPublished,
     lastUpdated: document.lastUpdated,
     createdAt: document.createdAt,
-    updatedAt: document.updatedAt
+    updatedAt: document.updatedAt,
   };
 };
 
@@ -108,6 +136,6 @@ exports.formatNotificationResponse = (notification) => {
     created_by: notification.created_by || null,
     is_active: notification.is_active,
     createdAt: notification.createdAt,
-    updatedAt: notification.updatedAt
+    updatedAt: notification.updatedAt,
   };
 };

@@ -33,8 +33,8 @@ const UserSchema = new mongoose.Schema(
     },
     current_subscription: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "SubscriptionPlan",
-      default: null, // Will be set to Free plan ID after plan creation
+      ref: "UserSubscription",
+      default: null,
     },
     role: {
       type: mongoose.Schema.Types.ObjectId,

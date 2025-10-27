@@ -5,6 +5,7 @@ const User = require("../models/User");
 const Role = require("../models/Role");
 const OTP = require("../models/OTP");
 const SubscriptionPlan = require("../models/SubscriptionPlan");
+const UserSubscription = require("../models/UserSubscription");
 const { success, error } = require("../utils/response");
 const { sendEmail } = require("../utils/emailService");
 const { formatUserResponse } = require("../utils/formatters");
@@ -113,31 +114,39 @@ exports.register = async (req, res, next) => {
       role: userRole._id,
     });
 
-    // Get or create Free subscription plan for this user
-    let freePlan = await SubscriptionPlan.findOne({
+    // Get Free plan template
+    const freePlanTemplate = await SubscriptionPlan.findOne({
       name: "Free",
     });
-    if (!freePlan) {
-      freePlan = await SubscriptionPlan.create({
-        name: "Free",
-        status: "Active",
-        price: 0,
-        billing_period: "monthly",
-        voice_minutes: 2,
-        features: ["2 voice minutes", "Basic AI companion"],
-        description: "Perfect for trying out SelfTalk",
-        is_popular: false,
-        currency: "EUR",
-        total_minutes: 2,
-        available_minutes: 2,
-        user_id: user._id,
-        subscription_started_at: new Date(),
-        subscription_end_date: null, // Free users don't have expiry
-      });
+    if (!freePlanTemplate) {
+      return error(res, 500, "Free plan template not found in database");
     }
 
+    // Calculate subscription dates (1 month from now)
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setMonth(endDate.getMonth() + 1);
+
+    // Create user subscription with Free plan
+    const userSubscription = await UserSubscription.create({
+      plan_id: freePlanTemplate._id,
+      name: freePlanTemplate.name,
+      status: freePlanTemplate.status,
+      price: freePlanTemplate.price,
+      billing_period: freePlanTemplate.billing_period,
+      features: freePlanTemplate.features,
+      description: freePlanTemplate.description,
+      is_popular: freePlanTemplate.is_popular,
+      currency: freePlanTemplate.currency,
+      total_minutes: freePlanTemplate.voice_minutes,
+      available_minutes: freePlanTemplate.voice_minutes,
+      recordings: [],
+      subscription_started_at: now,
+      subscription_end_date: endDate,
+    });
+
     // Update user with subscription reference
-    user.current_subscription = freePlan._id;
+    user.current_subscription = userSubscription._id;
     await user.save();
 
     // Populate role and subscription for response
