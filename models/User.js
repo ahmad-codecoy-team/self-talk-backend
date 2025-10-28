@@ -31,6 +31,10 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    counter: {
+      type: Number,
+      default: 0,
+    },
     current_subscription: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "UserSubscription",

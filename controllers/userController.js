@@ -43,7 +43,7 @@ exports.getProfile = async (req, res, next) => {
 // =================== UPDATE PROFILE ===================
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { username, profilePicture, voice_id, model_id } = req.body;
+    const { username, profilePicture, voice_id, model_id, counter } = req.body;
     const userId = req.user.uid;
 
     const user = await User.findById(userId)
@@ -99,6 +99,12 @@ exports.updateProfile = async (req, res, next) => {
     // Handle model_id update
     if (model_id !== undefined) {
       user.model_id = model_id && model_id.trim() ? model_id.trim() : null;
+      profileUpdated = true;
+    }
+
+    // Handle counter update
+    if (counter !== undefined) {
+      user.counter = typeof counter === "number" ? counter : 0;
       profileUpdated = true;
     }
 

@@ -18,6 +18,7 @@ exports.formatUserResponse = (user) => {
     profilePicture: user.profilePicture || "",
     voice_id: user.voice_id || null,
     model_id: user.model_id || null,
+    counter: user.counter || 0,
     current_subscription: user.current_subscription
       ? formatUserSubscriptionResponse(user.current_subscription)
       : null,
