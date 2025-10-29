@@ -209,6 +209,22 @@ const updatePlanValidation = [
 ];
 
 // Validation for buying/subscribing to a plan
+// const buySubscriptionValidation = [
+//   body("name")
+//     .exists({ checkFalsy: true })
+//     .withMessage("Plan name is required")
+//     .bail()
+//     .custom(notArray)
+//     .withMessage("Plan name must not be an array")
+//     .bail()
+//     .custom(isPlainString)
+//     .withMessage("Plan name must be a string")
+//     .bail()
+//     .trim()
+//     .isIn(["Free", "Premium", "Super"])
+//     .withMessage("Plan name must be Free, Premium, or Super"),
+// ];
+
 const buySubscriptionValidation = [
   body("name")
     .exists({ checkFalsy: true })
@@ -221,6 +237,12 @@ const buySubscriptionValidation = [
     .withMessage("Plan name must be a string")
     .bail()
     .trim()
+    .customSanitizer((value) => {
+      if (typeof value === "string") {
+        return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+      }
+      return value;
+    })
     .isIn(["Free", "Premium", "Super"])
     .withMessage("Plan name must be Free, Premium, or Super"),
 ];
