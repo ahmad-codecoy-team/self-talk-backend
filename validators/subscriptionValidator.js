@@ -260,12 +260,10 @@ const addMinutesValidation = [
     .withMessage("Minutes must be a positive integer"),
 ];
 
-// Validation for updating recordings
-const updateRecordingsValidation = [
+// Validation for updating recordings and/or available_minutes
+const updateSubscriptionValidation = [
   body("recordings")
-    .exists()
-    .withMessage("Recordings is required")
-    .bail()
+    .optional()
     .isArray()
     .withMessage("Recordings must be an array")
     .bail()
@@ -273,6 +271,13 @@ const updateRecordingsValidation = [
       return recordings.every((r) => typeof r === "string");
     })
     .withMessage("All recording IDs must be strings"),
+  body("available_minutes")
+    .optional()
+    .custom(notArray)
+    .withMessage("Available minutes must not be an array")
+    .bail()
+    .isFloat({ min: 0 })
+    .withMessage("Available minutes must be a non-negative number"),
 ];
 
 module.exports = {
@@ -280,5 +285,5 @@ module.exports = {
   updatePlanValidation,
   buySubscriptionValidation,
   addMinutesValidation,
-  updateRecordingsValidation,
+  updateSubscriptionValidation,
 };

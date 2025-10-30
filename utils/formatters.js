@@ -61,6 +61,9 @@ exports.formatPlanResponse = (plan) => {
 exports.formatUserSubscriptionResponse = (userSubscription) => {
   if (!userSubscription) return null;
 
+  const subscriptionAvailable = userSubscription.available_minutes || 0;
+  const extraMinutes = userSubscription.extra_minutes || 0;
+
   return {
     _id: userSubscription._id,
     name: userSubscription.name,
@@ -72,7 +75,8 @@ exports.formatUserSubscriptionResponse = (userSubscription) => {
     is_popular: userSubscription.is_popular || false,
     currency: userSubscription.currency || "EUR",
     total_minutes: userSubscription.total_minutes || 0,
-    available_minutes: userSubscription.available_minutes || 0,
+    available_minutes: subscriptionAvailable + extraMinutes,
+    extra_minutes: extraMinutes,
     recordings: userSubscription.recordings || [],
     subscription_started_at: userSubscription.subscription_started_at || null,
     subscription_end_date: userSubscription.subscription_end_date || null,

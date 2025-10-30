@@ -140,6 +140,7 @@ exports.register = async (req, res, next) => {
       currency: freePlanTemplate.currency,
       total_minutes: freePlanTemplate.voice_minutes,
       available_minutes: freePlanTemplate.voice_minutes,
+      extra_minutes: 0,
       recordings: [],
       subscription_started_at: now,
       subscription_end_date: endDate,

@@ -5,7 +5,7 @@ const {
   addMinutes,
   getActivePlans,
   checkSubscriptionExpiry,
-  updateRecordings,
+  updateSubscription,
 } = require("../controllers/subscriptionController");
 const { requireAuth } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validateMiddleware");
@@ -13,7 +13,7 @@ const validate = require("../middlewares/validateMiddleware");
 const {
   buySubscriptionValidation,
   addMinutesValidation,
-  updateRecordingsValidation,
+  updateSubscriptionValidation,
 } = require("../validators/subscriptionValidator");
 
 const router = express.Router();
@@ -47,11 +47,11 @@ router.post("/check-expiry", requireAuth, checkSubscriptionExpiry);
 
 // Update recordings in subscription (internal use)
 router.post(
-  "/update-recordings",
+  "/update-subscription",
   requireAuth,
-  updateRecordingsValidation,
+  updateSubscriptionValidation,
   validate,
-  updateRecordings
+  updateSubscription
 );
 
 // Get all active plans (for users to see available options)
