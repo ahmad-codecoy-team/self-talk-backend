@@ -382,7 +382,7 @@ exports.getAllUsers = async (req, res, next) => {
     // Get users with pagination
     const users = await User.find(filter)
       .populate("role", "name description")
-      .populate("current_subscription", "name price billing_period")
+      .populate("current_subscription") // Populate all subscription fields
       .select("-password") // Exclude password from response
       .sort({ createdAt: -1 }) // Most recent first
       .skip(skip)
