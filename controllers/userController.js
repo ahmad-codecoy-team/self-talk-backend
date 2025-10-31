@@ -2,6 +2,8 @@ const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 const axios = require("axios");
 const User = require("../models/User");
+const { deleteProfilePicture } = require("./authController");
+const UserSubscription = require("../models/UserSubscription");
 const Conversation = require("../models/Conversation");
 const Message = require("../models/Message");
 const OTP = require("../models/OTP");
@@ -235,7 +237,14 @@ exports.deleteAccount = async (req, res, next) => {
       // 3. Delete all OTPs related to the user's email
       await OTP.deleteMany({ email: user.email }, { session });
 
-      // 4. Finally, delete the user account itself
+      // 4. Delete user's subscription if exists
+      if (user.current_subscription) {
+        await UserSubscription.findByIdAndDelete(user.current_subscription, {
+          session,
+        });
+      }
+
+      // 5. Finally, delete the user account itself
       await User.findByIdAndDelete(userId, { session });
     });
 
