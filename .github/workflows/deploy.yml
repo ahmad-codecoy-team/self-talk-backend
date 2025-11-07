@@ -1,0 +1,48 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+            echo "🚀 Starting deployment..."
+
+            # Navigate to project directory
+            cd /var/www/self-talk-backend
+
+            # Pull latest changes
+            echo "📥 Pulling latest code from GitHub..."
+            git pull origin main
+
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            npm install --production
+
+            # Restart PM2 process
+            echo "🔄 Restarting application..."
+            pm2 restart self-talk-api
+
+            # Check application status
+            echo "✅ Checking application status..."
+            pm2 status self-talk-api
+
+            # Show recent logs
+            echo "📋 Recent application logs:"
+            pm2 logs self-talk-api --lines 10 --nostream
+
+            echo "✨ Deployment completed successfully!"
