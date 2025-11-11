@@ -7,6 +7,7 @@ const {
   getDocumentBySlug,
   getPublishedDocuments,
   getMyNotifications,
+  getPublicFAQs,
 } = require("../controllers/userController");
 const { requireAuth } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validateMiddleware");
@@ -41,6 +42,9 @@ router.delete("/delete-account", requireAuth, deleteAccount);
 
 // Get user notifications (Protected)
 router.get("/notifications", requireAuth, getMyNotifications);
+
+// Get all FAQs (Public access)
+router.get("/faqs", getPublicFAQs);
 
 // =========================
 // Public Document Routes

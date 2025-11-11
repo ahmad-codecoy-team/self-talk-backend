@@ -15,6 +15,8 @@ const {
   formatNotificationResponse,
   formatUserResponse,
 } = require("../utils/formatters");
+const FAQ = require("../models/FAQ");
+const { formatFAQResponse } = require("../utils/formatters");
 
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || "12", 10);
 const ELEVENLABS_API_KEY =
@@ -382,6 +384,32 @@ exports.getMyNotifications = async (req, res, next) => {
         currentPage: page,
       }
     );
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== PUBLIC FAQs ===================
+
+exports.getPublicFAQs = async (req, res, next) => {
+  try {
+    const { category } = req.query;
+
+    let filter = {};
+    if (
+      category &&
+      ["General", "Account", "Billing", "Features", "Technical"].includes(
+        category
+      )
+    ) {
+      filter.category = category;
+    }
+
+    const faqs = await FAQ.find(filter).sort({ createdAt: -1 });
+
+    return success(res, 200, "FAQs fetched successfully", {
+      faqs: faqs.map((faq) => formatFAQResponse(faq)),
+    });
   } catch (err) {
     next(err);
   }
