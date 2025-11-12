@@ -12,6 +12,8 @@ const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const customSupportRoutes = require("./routes/customSupportRoutes");
+const promptRoutes = require("./routes/promptRoutes");
 
 const app = express();
 
@@ -75,6 +77,8 @@ app.use("/api/user", userRoutes);
 app.use("/api/talk", talkRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/support", customSupportRoutes);
+app.use("/api/prompt", promptRoutes);
 
 // Catch-all route for 404s
 app.use((req, res) => {

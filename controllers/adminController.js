@@ -3,6 +3,7 @@ const User = require("../models/User");
 const FAQ = require("../models/FAQ");
 const Document = require("../models/Document");
 const Notification = require("../models/Notification");
+const Prompt = require("../models/Prompt");
 const { success, error } = require("../utils/response");
 const {
   formatUserResponse,
@@ -774,6 +775,84 @@ exports.deleteNotification = async (req, res, next) => {
     await Notification.findByIdAndDelete(id);
 
     return success(res, 200, "Notification deleted successfully");
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== ADMIN PROMPT MANAGEMENT ===================
+
+// CREATE - Create a new prompt (Admin only)
+exports.createPrompt = async (req, res, next) => {
+  try {
+    const { prompt } = req.body;
+
+    // Check if prompt already exists (since we only want one global prompt)
+    const existingPrompt = await Prompt.findOne();
+    if (existingPrompt) {
+      return error(res, 409, "A global prompt already exists. Please update the existing prompt instead.");
+    }
+
+    const newPrompt = await Prompt.create({
+      prompt,
+    });
+
+    return success(res, 201, "Prompt created successfully", {
+      prompt: {
+        _id: newPrompt._id,
+        prompt: newPrompt.prompt,
+        createdAt: newPrompt.createdAt,
+        updatedAt: newPrompt.updatedAt,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// READ - Get the global prompt (Admin only)
+exports.getAdminPrompt = async (req, res, next) => {
+  try {
+    const prompt = await Prompt.findOne().select("prompt createdAt updatedAt");
+
+    if (!prompt) {
+      return error(res, 404, "No prompt found");
+    }
+
+    return success(res, 200, "Prompt fetched successfully", {
+      prompt: {
+        _id: prompt._id,
+        prompt: prompt.prompt,
+        createdAt: prompt.createdAt,
+        updatedAt: prompt.updatedAt,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// UPDATE - Update the global prompt (Admin only)
+exports.updatePrompt = async (req, res, next) => {
+  try {
+    const { prompt } = req.body;
+
+    const existingPrompt = await Prompt.findOne();
+    if (!existingPrompt) {
+      return error(res, 404, "No prompt found to update");
+    }
+
+    existingPrompt.prompt = prompt;
+    await existingPrompt.save();
+
+    return success(res, 200, "Prompt updated successfully", {
+      prompt: {
+        _id: existingPrompt._id,
+        prompt: existingPrompt.prompt,
+        createdAt: existingPrompt.createdAt,
+        updatedAt: existingPrompt.updatedAt,
+      },
+    });
   } catch (err) {
     next(err);
   }

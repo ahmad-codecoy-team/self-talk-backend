@@ -21,6 +21,9 @@ const {
   getNotificationById,
   updateNotification,
   deleteNotification,
+  createPrompt,
+  getAdminPrompt,
+  updatePrompt,
 } = require("../controllers/adminController");
 const { requireAuth, requireAdmin } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validateMiddleware");
@@ -41,6 +44,11 @@ const {
   createNotificationValidation,
   updateNotificationValidation,
 } = require("../validators/notificationValidator");
+
+const {
+  createPromptValidation,
+  updatePromptValidation,
+} = require("../validators/promptValidator");
 
 const router = express.Router();
 
@@ -170,6 +178,31 @@ router.delete(
   requireAuth,
   requireAdmin,
   deleteNotification
+);
+
+// =================== ADMIN PROMPT MANAGEMENT ===================
+
+// Create a new prompt (Admin only)
+router.post(
+  "/prompt",
+  requireAuth,
+  requireAdmin,
+  createPromptValidation,
+  validate,
+  createPrompt
+);
+
+// Get the global prompt (Admin only)
+router.get("/prompt", requireAuth, requireAdmin, getAdminPrompt);
+
+// Update the global prompt (Admin only)
+router.put(
+  "/prompt",
+  requireAuth,
+  requireAdmin,
+  updatePromptValidation,
+  validate,
+  updatePrompt
 );
 
 module.exports = router;
