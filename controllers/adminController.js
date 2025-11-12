@@ -4,6 +4,7 @@ const FAQ = require("../models/FAQ");
 const Document = require("../models/Document");
 const Notification = require("../models/Notification");
 const Prompt = require("../models/Prompt");
+const CustomSupport = require("../models/CustomSupport");
 const { success, error } = require("../utils/response");
 const {
   formatUserResponse,
@@ -853,6 +854,71 @@ exports.updatePrompt = async (req, res, next) => {
         updatedAt: existingPrompt.updatedAt,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== ADMIN CUSTOM SUPPORT MANAGEMENT ===================
+
+// GET ALL - Get all custom support requests (Admin only)
+exports.getAllCustomSupportRequests = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Build filter object for queries
+    const filter = {};
+    
+    // Optional filters
+    if (req.query.search) {
+      filter.$or = [
+        { message: { $regex: req.query.search, $options: "i" } }
+      ];
+    }
+
+    // Get total count for pagination
+    const total = await CustomSupport.countDocuments(filter);
+    const totalPages = Math.ceil(total / limit);
+
+    // Get support requests with populated user data
+    const supportRequests = await CustomSupport.find(filter)
+      .populate("userId", "username email profilePicture is_suspended createdAt")
+      .select("message createdAt updatedAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const formattedRequests = supportRequests.map((request) => ({
+      _id: request._id,
+      message: request.message,
+      user: {
+        _id: request.userId._id,
+        username: request.userId.username,
+        email: request.userId.email,
+        profilePicture: request.userId.profilePicture,
+        is_suspended: request.userId.is_suspended,
+        userCreatedAt: request.userId.createdAt,
+      },
+      createdAt: request.createdAt,
+      updatedAt: request.updatedAt,
+    }));
+
+    return success(
+      res,
+      200,
+      "Custom support requests fetched successfully",
+      {
+        supportRequests: formattedRequests,
+      },
+      {
+        total,
+        limit,
+        totalPages,
+        currentPage: page,
+      }
+    );
   } catch (err) {
     next(err);
   }

@@ -24,6 +24,7 @@ const {
   createPrompt,
   getAdminPrompt,
   updatePrompt,
+  getAllCustomSupportRequests,
 } = require("../controllers/adminController");
 const { requireAuth, requireAdmin } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validateMiddleware");
@@ -204,5 +205,10 @@ router.put(
   validate,
   updatePrompt
 );
+
+// =================== ADMIN CUSTOM SUPPORT MANAGEMENT ===================
+
+// Get all custom support requests (Admin only)
+router.get("/support", requireAuth, requireAdmin, getAllCustomSupportRequests);
 
 module.exports = router;
