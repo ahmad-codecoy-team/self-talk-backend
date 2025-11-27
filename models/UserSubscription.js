@@ -50,6 +50,25 @@ const UserSubscriptionSchema = new mongoose.Schema(
       default: "EUR",
       trim: true,
     },
+    // OLD MINUTES-BASED SYSTEM (commented for Socket.io implementation)
+    // total_minutes: {
+    //   type: Number,
+    //   required: true,
+    //   min: 0,
+    // },
+    // available_minutes: {
+    //   type: Number,
+    //   required: true,
+    //   min: 0,
+    // },
+    // extra_minutes: {
+    //   type: Number,
+    //   required: true,
+    //   default: 0,
+    //   min: 0,
+    // },
+
+    // NEW SECONDS-BASED SYSTEM for real-time Socket.io timer management
     total_minutes: {
       type: Number,
       required: true,
@@ -63,6 +82,12 @@ const UserSubscriptionSchema = new mongoose.Schema(
     extra_minutes: {
       type: Number,
       required: true,
+      default: 0,
+      min: 0,
+    },
+    seconds: {
+      type: Number,
+      required: false,
       default: 0,
       min: 0,
     },

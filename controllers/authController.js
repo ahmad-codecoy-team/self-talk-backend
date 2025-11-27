@@ -127,7 +127,7 @@ exports.register = async (req, res, next) => {
     const endDate = new Date(now);
     endDate.setMonth(endDate.getMonth() + 1);
 
-    // Create user subscription with Free plan
+    // Create user subscription with Free plan (includes new seconds field)
     const userSubscription = await UserSubscription.create({
       plan_id: freePlanTemplate._id,
       name: freePlanTemplate.name,
@@ -145,6 +145,10 @@ exports.register = async (req, res, next) => {
       subscription_started_at: now,
       subscription_end_date: endDate,
     });
+
+    // Calculate seconds from available + extra minutes (Free plan: 2 minutes = 120 seconds)
+    userSubscription.seconds = (userSubscription.available_minutes + userSubscription.extra_minutes) * 60;
+    await userSubscription.save();
 
     // Update user with subscription reference
     user.current_subscription = userSubscription._id;

@@ -4,6 +4,63 @@ const User = require("../models/User");
 const { success, error } = require("../utils/response");
 const { formatUserResponse } = require("../utils/formatters");
 
+// =================== HELPER FUNCTIONS FOR SECONDS MANAGEMENT ===================
+
+/**
+ * Calculate total available seconds from available_minutes + extra_minutes
+ */
+const calculateTotalSeconds = (userSubscription) => {
+  const availableMinutes = userSubscription.available_minutes || 0;
+  const extraMinutes = userSubscription.extra_minutes || 0;
+  return (availableMinutes + extraMinutes) * 60;
+};
+
+/**
+ * Update seconds field to reflect current available + extra minutes
+ */
+const updateSecondsField = async (userSubscription) => {
+  userSubscription.seconds = calculateTotalSeconds(userSubscription);
+  await userSubscription.save();
+};
+
+/**
+ * Deduct seconds from subscription following the same logic as old minutes system:
+ * 1. First deduct from available_minutes (converted to seconds)
+ * 2. Then deduct from extra_minutes (converted to seconds)
+ * 3. Update the seconds field to reflect new totals
+ */
+const deductSeconds = async (userSubscriptionId, secondsToDeduct) => {
+  const userSubscription = await UserSubscription.findById(userSubscriptionId);
+  if (!userSubscription) {
+    throw new Error('Subscription not found');
+  }
+
+  // Convert seconds to minutes for calculation
+  const minutesToDeduct = secondsToDeduct / 60;
+  let remainingToDeduct = minutesToDeduct;
+
+  // First deduct from available_minutes
+  if (userSubscription.available_minutes >= remainingToDeduct) {
+    // All deducted from subscription minutes
+    userSubscription.available_minutes -= remainingToDeduct;
+  } else {
+    // Consume all subscription minutes, then deduct from extra
+    remainingToDeduct -= userSubscription.available_minutes;
+    userSubscription.available_minutes = 0;
+    userSubscription.extra_minutes = Math.max(
+      0,
+      userSubscription.extra_minutes - remainingToDeduct
+    );
+  }
+
+  // total_minutes should remain unchanged as it represents purchased amount
+  // Only update seconds field to reflect remaining time
+  userSubscription.seconds = calculateTotalSeconds(userSubscription);
+  
+  await userSubscription.save();
+  return userSubscription;
+};
+
 // =================== USER SUBSCRIPTION MANAGEMENT ===================
 
 // GET - Get user's current subscription details with full user profile
@@ -80,7 +137,7 @@ exports.buySubscription = async (req, res, next) => {
         : 0;
 
       // Update existing subscription with new plan data but preserve extra_minutes
-      await UserSubscription.findByIdAndUpdate(user.current_subscription, {
+      const updateData = {
         plan_id: planTemplate._id,
         name: planTemplate.name,
         status: planTemplate.status,
@@ -96,7 +153,16 @@ exports.buySubscription = async (req, res, next) => {
         recordings: [],
         subscription_started_at: now,
         subscription_end_date: endDate,
-      });
+      };
+      
+      const updatedSubscription = await UserSubscription.findByIdAndUpdate(
+        user.current_subscription,
+        updateData,
+        { new: true }
+      );
+      
+      // Calculate seconds from total available time (available + extra minutes)
+      await updateSecondsField(updatedSubscription);
     } else {
       // Create new subscription if none exists
       const newUserSubscription = await UserSubscription.create({
@@ -116,6 +182,9 @@ exports.buySubscription = async (req, res, next) => {
         subscription_started_at: now,
         subscription_end_date: endDate,
       });
+
+      // Calculate seconds from available + extra minutes
+      await updateSecondsField(newUserSubscription);
 
       user.current_subscription = newUserSubscription._id;
       await user.save();
@@ -162,7 +231,9 @@ exports.addMinutes = async (req, res, next) => {
     // Do not touch available_minutes; formatter will include extra in response
     userSubscription.extra_minutes += minutes;
     userSubscription.total_minutes += minutes;
-    await userSubscription.save();
+    
+    // Update seconds field to reflect new total (available + extra minutes)
+    await updateSecondsField(userSubscription);
 
     return success(res, 200, "Minutes added successfully", {
       user: formatUserResponse(user),
@@ -232,23 +303,30 @@ exports.checkSubscriptionExpiry = async (req, res, next) => {
     endDate.setMonth(endDate.getMonth() + 1);
 
     // Update existing subscription to Free plan while preserving extra_minutes
-    await UserSubscription.findByIdAndUpdate(currentSubscription._id, {
-      plan_id: freePlanTemplate._id,
-      name: freePlanTemplate.name,
-      status: freePlanTemplate.status,
-      price: freePlanTemplate.price,
-      billing_period: freePlanTemplate.billing_period,
-      features: freePlanTemplate.features,
-      description: freePlanTemplate.description,
-      is_popular: freePlanTemplate.is_popular,
-      currency: freePlanTemplate.currency,
-      total_minutes: 2 + preservedExtraMinutes,
-      available_minutes: 2,
-      extra_minutes: preservedExtraMinutes,
-      recordings: [],
-      subscription_started_at: now,
-      subscription_end_date: endDate,
-    });
+    const updatedSubscription = await UserSubscription.findByIdAndUpdate(
+      currentSubscription._id,
+      {
+        plan_id: freePlanTemplate._id,
+        name: freePlanTemplate.name,
+        status: freePlanTemplate.status,
+        price: freePlanTemplate.price,
+        billing_period: freePlanTemplate.billing_period,
+        features: freePlanTemplate.features,
+        description: freePlanTemplate.description,
+        is_popular: freePlanTemplate.is_popular,
+        currency: freePlanTemplate.currency,
+        total_minutes: 2 + preservedExtraMinutes,
+        available_minutes: 2,
+        extra_minutes: preservedExtraMinutes,
+        recordings: [],
+        subscription_started_at: now,
+        subscription_end_date: endDate,
+      },
+      { new: true }
+    );
+
+    // Calculate seconds from total available time (2 minutes + extra minutes)
+    await updateSecondsField(updatedSubscription);
 
     // Reload user with populated subscription
     const updatedUser = await User.findById(userId)
@@ -264,11 +342,101 @@ exports.checkSubscriptionExpiry = async (req, res, next) => {
   }
 };
 
+// OLD IMPLEMENTATION - COMMENTED OUT FOR SOCKET.IO TIMER SYSTEM
 // POST - Update recordings and/or available_minutes in user's subscription
+// exports.updateSubscription = async (req, res, next) => {
+//   try {
+//     const userId = req.user.uid;
+//     const { recordings, available_minutes } = req.body;
+
+//     // Validate recordings if provided
+//     if (recordings !== undefined) {
+//       if (!Array.isArray(recordings)) {
+//         return error(res, 400, "Recordings must be an array");
+//       }
+//       if (!recordings.every((r) => typeof r === "string")) {
+//         return error(res, 400, "All recording IDs must be strings");
+//       }
+//     }
+
+//     // Validate available_minutes if provided
+//     if (available_minutes !== undefined) {
+//       if (typeof available_minutes !== "number" || available_minutes < 0) {
+//         return error(
+//           res,
+//           400,
+//           "Available minutes must be a non-negative number"
+//         );
+//       }
+//     }
+
+//     const user = await User.findById(userId)
+//       .populate("role")
+//       .populate("current_subscription");
+
+//     if (!user) {
+//       return error(res, 404, "User not found");
+//     }
+
+//     if (!user.current_subscription) {
+//       return error(res, 400, "User has no active subscription");
+//     }
+
+//     const userSubscription = user.current_subscription;
+
+//     // Update recordings if provided
+//     if (recordings !== undefined) {
+//       userSubscription.recordings = recordings;
+//     }
+
+//     // Update available_minutes if provided
+//     if (available_minutes !== undefined) {
+//       // Frontend sends total available (subscription + extra combined)
+//       // We need to split this back into subscription available_minutes and extra_minutes
+//       const currentTotal =
+//         (userSubscription.available_minutes || 0) +
+//         (userSubscription.extra_minutes || 0);
+//       const minutesConsumed = currentTotal - available_minutes;
+
+//       if (minutesConsumed > 0) {
+//         // Deduct from subscription minutes first
+//         let remainingToDeduct = minutesConsumed;
+
+//         if (userSubscription.available_minutes >= remainingToDeduct) {
+//           // All consumed from subscription minutes
+//           userSubscription.available_minutes -= remainingToDeduct;
+//         } else {
+//           // Consume all subscription minutes, then deduct from extra
+//           remainingToDeduct -= userSubscription.available_minutes;
+//           userSubscription.available_minutes = 0;
+//           userSubscription.extra_minutes = Math.max(
+//             0,
+//             userSubscription.extra_minutes - remainingToDeduct
+//           );
+//         }
+//       } else if (minutesConsumed < 0) {
+//         // Minutes increased (shouldn't happen in normal flow, but handle it)
+//         const minutesAdded = Math.abs(minutesConsumed);
+//         userSubscription.extra_minutes += minutesAdded;
+//       }
+//     }
+
+//     await userSubscription.save();
+
+//     return success(res, 200, "Subscription updated successfully", {
+//       user: formatUserResponse(user),
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
+// NEW SOCKET.IO COMPATIBLE IMPLEMENTATION
+// POST - Update recordings in user's subscription (seconds are managed via Socket.io)
 exports.updateSubscription = async (req, res, next) => {
   try {
     const userId = req.user.uid;
-    const { recordings, available_minutes } = req.body;
+    const { recordings } = req.body;
 
     // Validate recordings if provided
     if (recordings !== undefined) {
@@ -277,17 +445,6 @@ exports.updateSubscription = async (req, res, next) => {
       }
       if (!recordings.every((r) => typeof r === "string")) {
         return error(res, 400, "All recording IDs must be strings");
-      }
-    }
-
-    // Validate available_minutes if provided
-    if (available_minutes !== undefined) {
-      if (typeof available_minutes !== "number" || available_minutes < 0) {
-        return error(
-          res,
-          400,
-          "Available minutes must be a non-negative number"
-        );
       }
     }
 
@@ -310,37 +467,8 @@ exports.updateSubscription = async (req, res, next) => {
       userSubscription.recordings = recordings;
     }
 
-    // Update available_minutes if provided
-    if (available_minutes !== undefined) {
-      // Frontend sends total available (subscription + extra combined)
-      // We need to split this back into subscription available_minutes and extra_minutes
-      const currentTotal =
-        (userSubscription.available_minutes || 0) +
-        (userSubscription.extra_minutes || 0);
-      const minutesConsumed = currentTotal - available_minutes;
-
-      if (minutesConsumed > 0) {
-        // Deduct from subscription minutes first
-        let remainingToDeduct = minutesConsumed;
-
-        if (userSubscription.available_minutes >= remainingToDeduct) {
-          // All consumed from subscription minutes
-          userSubscription.available_minutes -= remainingToDeduct;
-        } else {
-          // Consume all subscription minutes, then deduct from extra
-          remainingToDeduct -= userSubscription.available_minutes;
-          userSubscription.available_minutes = 0;
-          userSubscription.extra_minutes = Math.max(
-            0,
-            userSubscription.extra_minutes - remainingToDeduct
-          );
-        }
-      } else if (minutesConsumed < 0) {
-        // Minutes increased (shouldn't happen in normal flow, but handle it)
-        const minutesAdded = Math.abs(minutesConsumed);
-        userSubscription.extra_minutes += minutesAdded;
-      }
-    }
+    // Note: Timer management (seconds) is now handled entirely via Socket.io
+    // No need to update minutes here as it's real-time via websockets
 
     await userSubscription.save();
 

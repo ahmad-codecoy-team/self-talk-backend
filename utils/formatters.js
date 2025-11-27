@@ -77,6 +77,7 @@ exports.formatUserSubscriptionResponse = (userSubscription) => {
     total_minutes: userSubscription.total_minutes || 0,
     available_minutes: subscriptionAvailable + extraMinutes,
     extra_minutes: extraMinutes,
+    seconds: userSubscription.seconds || 0, // New field for Socket.io timer system
     recordings: userSubscription.recordings || [],
     subscription_started_at: userSubscription.subscription_started_at || null,
     subscription_end_date: userSubscription.subscription_end_date || null,

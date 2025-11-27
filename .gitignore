@@ -7,6 +7,10 @@ logs/
 uploads/profile_pics/*
 !uploads/profile_pics/.gitkeep
 
+test.html
+testNewUser.js
+testSocket.js
+
 # Documentation files (for reference only, not to be pushed)
 CORS_FIXED.md
 SUBSCRIPTION_IMPLEMENTATION.md
