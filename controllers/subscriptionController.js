@@ -8,18 +8,20 @@ const { formatUserResponse } = require("../utils/formatters");
 
 /**
  * Calculate total available seconds from available_minutes + extra_minutes
+ * Always return integer seconds
  */
 const calculateTotalSeconds = (userSubscription) => {
   const availableMinutes = userSubscription.available_minutes || 0;
   const extraMinutes = userSubscription.extra_minutes || 0;
-  return (availableMinutes + extraMinutes) * 60;
+  return Math.floor((availableMinutes + extraMinutes) * 60);
 };
 
 /**
  * Update seconds field to reflect current available + extra minutes
+ * Always stores integer seconds in database
  */
 const updateSecondsField = async (userSubscription) => {
-  userSubscription.seconds = calculateTotalSeconds(userSubscription);
+  userSubscription.seconds = Math.floor(calculateTotalSeconds(userSubscription));
   await userSubscription.save();
 };
 

@@ -147,7 +147,8 @@ exports.register = async (req, res, next) => {
     });
 
     // Calculate seconds from available + extra minutes (Free plan: 2 minutes = 120 seconds)
-    userSubscription.seconds = (userSubscription.available_minutes + userSubscription.extra_minutes) * 60;
+    // Always store as integer
+    userSubscription.seconds = Math.floor((userSubscription.available_minutes + userSubscription.extra_minutes) * 60);
     await userSubscription.save();
 
     // Update user with subscription reference

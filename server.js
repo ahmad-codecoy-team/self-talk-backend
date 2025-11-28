@@ -37,6 +37,33 @@ const io = new Server(server, {
 // In-memory timer storage
 const activeTimers = new Map(); // userId -> { intervalId, socketId }
 
+// Helper function to sync minutes fields from seconds after call ends
+async function syncMinutesFromSeconds(subscription) {
+  const totalSeconds = subscription.seconds || 0;
+  const totalMinutes = totalSeconds / 60;
+  
+  // Determine how to distribute remaining time back to available_minutes and extra_minutes
+  // Based on the original proportion of available vs extra minutes
+  const originalAvailable = subscription.available_minutes || 0;
+  const originalExtra = subscription.extra_minutes || 0;
+  const originalTotal = originalAvailable + originalExtra;
+  
+  if (originalTotal > 0) {
+    // Maintain the same proportion
+    const availableRatio = originalAvailable / originalTotal;
+    const extraRatio = originalExtra / originalTotal;
+    
+    subscription.available_minutes = totalMinutes * availableRatio;
+    subscription.extra_minutes = totalMinutes * extraRatio;
+  } else {
+    // If no original minutes, put all remaining in available_minutes
+    subscription.available_minutes = totalMinutes;
+    subscription.extra_minutes = 0;
+  }
+  
+  await subscription.save();
+}
+
 // Process error handling for production
 process.on("uncaughtException", (error) => {
   console.error("❌ Uncaught Exception:", error);
@@ -162,36 +189,13 @@ io.on("connection", (socket) => {
         `▶️ Starting call timer | userId=${userId} | startingSeconds=${currentSeconds}`
       );
 
-      // Start the timer logic
-      let secondsConsumed = 0;
-      const startingAvailableMinutes =
-        user.current_subscription.available_minutes || 0;
-      const startingExtraMinutes = user.current_subscription.extra_minutes || 0;
-
-      const startingTotalSeconds =
-        (startingAvailableMinutes + startingExtraMinutes) * 60;
-
+      // Start the clean, simple timer - seconds is our single source of truth
       const intervalId = setInterval(async () => {
         try {
-          secondsConsumed += 1;
-
-          if (activeTimers.has(userId)) {
-            activeTimers.get(userId).secondsConsumed = secondsConsumed;
-          }
-
-          const remainingSeconds = Math.max(
-            0,
-            startingTotalSeconds - secondsConsumed
-          );
-
-          console.log(
-            `⏱ [timer] userId=${userId} | consumed=${secondsConsumed}s | remaining=${remainingSeconds}s`
-          );
-
+          // Get fresh subscription data
           const subscription = await UserSubscription.findById(
             user.current_subscription._id
           );
-
           if (!subscription) {
             console.log(
               `⚠️ Subscription missing during timer update for userId=${userId}`
@@ -201,49 +205,35 @@ io.on("connection", (socket) => {
             return;
           }
 
-          subscription.seconds = remainingSeconds;
-          await subscription.save();
+          // Simple: deduct 1 second directly from database
+          if (subscription.seconds > 0) {
+            subscription.seconds -= 1;
+            await subscription.save();
 
-          socket.emit("timer-update", { seconds: remainingSeconds });
-
-          if (remainingSeconds === 0) {
             console.log(
-              `⛔ Time up for userId=${userId}, applying final deduction`
+              `⏱ [timer] userId=${userId} | remaining=${subscription.seconds}s`
             );
 
-            try {
-              const minutesToDeduct = secondsConsumed / 60;
-              let remainingToDeduct = minutesToDeduct;
+            // Emit updated seconds to client
+            socket.emit("timer-update", { seconds: subscription.seconds });
 
-              if (subscription.available_minutes >= remainingToDeduct) {
-                subscription.available_minutes -= remainingToDeduct;
-              } else {
-                remainingToDeduct -= subscription.available_minutes;
-                subscription.available_minutes = 0;
-                subscription.extra_minutes = Math.max(
-                  0,
-                  subscription.extra_minutes - remainingToDeduct
-                );
-              }
-
-              // total_minutes should remain unchanged as it represents purchased amount
-              // Only update seconds field to reflect remaining time
-              subscription.seconds =
-                (subscription.available_minutes + subscription.extra_minutes) *
-                60;
-
-              await subscription.save();
-
+            // Check if time is up
+            if (subscription.seconds === 0) {
               console.log(
-                `💰 Final deduction applied for userId=${userId} | minutesDeducted=${minutesToDeduct}`
+                `⛔ Time up for userId=${userId}, syncing minutes fields`
               );
-            } catch (deductError) {
-              console.error("❌ Error applying final deduction:", deductError);
-            }
 
+              // Update minutes fields for billing accuracy after call ends
+              await syncMinutesFromSeconds(subscription);
+              
+              clearInterval(intervalId);
+              activeTimers.delete(userId);
+              socket.emit("call-ended", { reason: "time-up" });
+            }
+          } else {
+            // Time is already up
             clearInterval(intervalId);
             activeTimers.delete(userId);
-
             socket.emit("call-ended", { reason: "time-up" });
           }
         } catch (error) {
@@ -257,7 +247,6 @@ io.on("connection", (socket) => {
       activeTimers.set(userId, {
         intervalId,
         socketId: socket.id,
-        secondsConsumed: 0,
         startTime: Date.now(),
       });
 
@@ -282,50 +271,20 @@ io.on("connection", (socket) => {
 
     try {
       if (activeTimers.has(userId)) {
-        const { intervalId, secondsConsumed } = activeTimers.get(userId);
+        const { intervalId } = activeTimers.get(userId);
 
-        console.log(
-          `⛔ Ending call manually | userId=${userId} | secondsConsumed=${secondsConsumed}`
-        );
-
+        console.log(`⛔ Ending call manually | userId=${userId}`);
         clearInterval(intervalId);
 
+        // Sync minutes fields for billing accuracy
         try {
-          const user = await User.findById(userId).populate(
-            "current_subscription"
-          );
-          if (user && user.current_subscription && secondsConsumed > 0) {
-            const subscription = user.current_subscription;
-            const minutesToDeduct = secondsConsumed / 60;
-            let remainingToDeduct = minutesToDeduct;
-
-            if (subscription.available_minutes >= remainingToDeduct) {
-              subscription.available_minutes -= remainingToDeduct;
-            } else {
-              remainingToDeduct -= subscription.available_minutes;
-              subscription.available_minutes = 0;
-              subscription.extra_minutes = Math.max(
-                0,
-                subscription.extra_minutes - remainingToDeduct
-              );
-            }
-
-            // total_minutes should remain unchanged as it represents purchased amount
-            // Only update seconds field to reflect remaining time
-            subscription.seconds =
-              (subscription.available_minutes + subscription.extra_minutes) *
-              60;
-            await subscription.save();
-
-            console.log(
-              `💰 Manual end deduction applied | userId=${userId} | minutesDeducted=${minutesToDeduct}`
-            );
+          const user = await User.findById(userId).populate("current_subscription");
+          if (user && user.current_subscription) {
+            await syncMinutesFromSeconds(user.current_subscription);
+            console.log(`💰 Manual end - minutes synced | userId=${userId}`);
           }
-        } catch (deductError) {
-          console.error(
-            "❌ Error applying deduction on manual end:",
-            deductError
-          );
+        } catch (syncError) {
+          console.error("❌ Error syncing minutes on manual end:", syncError);
         }
 
         activeTimers.delete(userId);
@@ -347,50 +306,20 @@ io.on("connection", (socket) => {
     );
 
     if (activeTimers.has(userId)) {
-      const { intervalId, secondsConsumed } = activeTimers.get(userId);
+      const { intervalId } = activeTimers.get(userId);
       clearInterval(intervalId);
 
-      console.log(
-        `⛔ Disconnect triggered deduction | userId=${userId} | secondsConsumed=${secondsConsumed}`
-      );
+      console.log(`⛔ Disconnect triggered timer cleanup | userId=${userId}`);
 
+      // Sync minutes fields for billing accuracy
       try {
-        const user = await User.findById(userId).populate(
-          "current_subscription"
-        );
-
-        if (user && user.current_subscription && secondsConsumed > 0) {
-          const subscription = user.current_subscription;
-          const minutesToDeduct = secondsConsumed / 60;
-          let remainingToDeduct = minutesToDeduct;
-
-          if (subscription.available_minutes >= remainingToDeduct) {
-            subscription.available_minutes -= remainingToDeduct;
-          } else {
-            remainingToDeduct -= subscription.available_minutes;
-            subscription.available_minutes = 0;
-            subscription.extra_minutes = Math.max(
-              0,
-              subscription.extra_minutes - remainingToDeduct
-            );
-          }
-
-          // total_minutes should remain unchanged as it represents purchased amount
-          // Only update seconds field to reflect remaining time
-          subscription.seconds =
-            (subscription.available_minutes + subscription.extra_minutes) * 60;
-
-          await subscription.save();
-
-          console.log(
-            `💰 Disconnect deduction applied | userId=${userId} | minutesDeducted=${minutesToDeduct}`
-          );
+        const user = await User.findById(userId).populate("current_subscription");
+        if (user && user.current_subscription) {
+          await syncMinutesFromSeconds(user.current_subscription);
+          console.log(`💰 Disconnect - minutes synced | userId=${userId}`);
         }
-      } catch (deductError) {
-        console.error(
-          "❌ Error applying deduction on disconnect:",
-          deductError
-        );
+      } catch (syncError) {
+        console.error("❌ Error syncing minutes on disconnect:", syncError);
       }
 
       activeTimers.delete(userId);
