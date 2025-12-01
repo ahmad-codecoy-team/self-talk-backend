@@ -38,11 +38,7 @@ const registerValidation = [
     .trim()
     .isLength({ min: 3, max: 30 })
     .withMessage("Username must be between 3 and 30 characters")
-    .bail()
-    .matches(USERNAME_RE)
-    .withMessage(
-      "Username must start with a letter and can only contain letters, numbers, periods, or underscores"
-    ),
+    .bail(),
 
   ...standardEmailValidation(),
 
