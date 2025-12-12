@@ -74,12 +74,12 @@ exports.register = async (req, res, next) => {
       });
     }
 
-    const existingUsername = await User.findOne({ username: username.trim() });
-    if (existingUsername) {
-      return error(res, 409, "Registration failed", {
-        username: "This username is already taken",
-      });
-    }
+    // const existingUsername = await User.findOne({ username: username.trim() });
+    // if (existingUsername) {
+    //   return error(res, 409, "Registration failed", {
+    //     username: "This username is already taken",
+    //   });
+    // }
 
     // Get default user role
     let userRole = await Role.findOne({ name: "user" });
@@ -148,7 +148,9 @@ exports.register = async (req, res, next) => {
 
     // Calculate seconds from available + extra minutes (Free plan: 2 minutes = 120 seconds)
     // Always store as integer
-    userSubscription.seconds = Math.floor((userSubscription.available_minutes + userSubscription.extra_minutes) * 60);
+    userSubscription.seconds = Math.floor(
+      (userSubscription.available_minutes + userSubscription.extra_minutes) * 60
+    );
     await userSubscription.save();
 
     // Update user with subscription reference
