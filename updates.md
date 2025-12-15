@@ -1,0 +1,3 @@
+# Updates to do
+
+we need to add a new feature in our admin. create a new modal named 'languages'. now the requirement is, admin will first add a language and then accents for that language. so admin can add multiple languages and accents for each language. for that you need to build new model for language and accent. and then apis will be like create language, update language, delete language, create accent, update accent, delete accent for our admin. and now the normal user can select the language and accent from the dropdown and can use it in the app. that's it, please add this new feature.

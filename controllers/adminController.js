@@ -5,6 +5,8 @@ const Document = require("../models/Document");
 const Notification = require("../models/Notification");
 const Prompt = require("../models/Prompt");
 const CustomSupport = require("../models/CustomSupport");
+const Language = require("../models/Language");
+const Accent = require("../models/Accent");
 const { success, error } = require("../utils/response");
 const {
   formatUserResponse,
@@ -12,6 +14,8 @@ const {
   formatFAQResponse,
   formatDocumentResponse,
   formatNotificationResponse,
+  formatLanguageResponse,
+  formatAccentResponse,
 } = require("../utils/formatters");
 
 // =================== ADMIN SUBSCRIPTION PLAN MANAGEMENT ===================
@@ -786,7 +790,7 @@ exports.deleteNotification = async (req, res, next) => {
 // CREATE - Create a new prompt (Admin only)
 exports.createPrompt = async (req, res, next) => {
   try {
-    const { prompt } = req.body;
+    const { prompt, llmModal } = req.body;
 
     // Check if prompt already exists (since we only want one global prompt)
     const existingPrompt = await Prompt.findOne();
@@ -796,12 +800,14 @@ exports.createPrompt = async (req, res, next) => {
 
     const newPrompt = await Prompt.create({
       prompt,
+      llmModal,
     });
 
     return success(res, 201, "Prompt created successfully", {
       prompt: {
         _id: newPrompt._id,
         prompt: newPrompt.prompt,
+        llmModal: newPrompt.llmModal,
         createdAt: newPrompt.createdAt,
         updatedAt: newPrompt.updatedAt,
       },
@@ -814,7 +820,7 @@ exports.createPrompt = async (req, res, next) => {
 // READ - Get the global prompt (Admin only)
 exports.getAdminPrompt = async (req, res, next) => {
   try {
-    const prompt = await Prompt.findOne().select("prompt createdAt updatedAt");
+    const prompt = await Prompt.findOne().select("prompt llmModal createdAt updatedAt");
 
     if (!prompt) {
       return error(res, 404, "No prompt found");
@@ -824,6 +830,7 @@ exports.getAdminPrompt = async (req, res, next) => {
       prompt: {
         _id: prompt._id,
         prompt: prompt.prompt,
+        llmModal: prompt.llmModal,
         createdAt: prompt.createdAt,
         updatedAt: prompt.updatedAt,
       },
@@ -836,7 +843,7 @@ exports.getAdminPrompt = async (req, res, next) => {
 // UPDATE - Update the global prompt (Admin only)
 exports.updatePrompt = async (req, res, next) => {
   try {
-    const { prompt } = req.body;
+    const { prompt, llmModal } = req.body;
 
     const existingPrompt = await Prompt.findOne();
     if (!existingPrompt) {
@@ -844,16 +851,197 @@ exports.updatePrompt = async (req, res, next) => {
     }
 
     existingPrompt.prompt = prompt;
+    if (llmModal !== undefined) existingPrompt.llmModal = llmModal;
     await existingPrompt.save();
 
     return success(res, 200, "Prompt updated successfully", {
       prompt: {
         _id: existingPrompt._id,
         prompt: existingPrompt.prompt,
+        llmModal: existingPrompt.llmModal,
         createdAt: existingPrompt.createdAt,
         updatedAt: existingPrompt.updatedAt,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== ADMIN LANGUAGE MANAGEMENT ===================
+
+// CREATE - Create a new language (Admin only)
+exports.createLanguage = async (req, res, next) => {
+  try {
+    const { name, code } = req.body;
+
+    const existingLanguage = await Language.findOne({ code });
+    if (existingLanguage) {
+      return error(res, 409, "Language with this code already exists");
+    }
+
+    const language = await Language.create({ name, code });
+
+    return success(res, 201, "Language created successfully", {
+      language: {
+        _id: language._id,
+        name: language.name,
+        code: language.code,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// READ - Get all languages (Admin only)
+exports.getAllLanguages = async (req, res, next) => {
+  try {
+    const languages = await Language.find().sort({ name: 1 });
+    return success(res, 200, "Languages fetched successfully", {
+      languages,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// UPDATE - Update language (Admin only)
+exports.updateLanguage = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, code } = req.body;
+
+    const language = await Language.findById(id);
+    if (!language) {
+      return error(res, 404, "Language not found");
+    }
+
+    if (code && code !== language.code) {
+      const existingLanguage = await Language.findOne({ code });
+      if (existingLanguage) {
+        return error(res, 409, "Language with this code already exists");
+      }
+    }
+
+    if (name) language.name = name;
+    if (code) language.code = code;
+
+    await language.save();
+
+    return success(res, 200, "Language updated successfully", {
+      language,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE - Delete language (Admin only)
+exports.deleteLanguage = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if language has accents
+    const accentsCount = await Accent.countDocuments({ language: id });
+    if (accentsCount > 0) {
+      return error(res, 400, "Cannot delete language with associated accents. Delete accents first.");
+    }
+
+    const language = await Language.findByIdAndDelete(id);
+    if (!language) {
+      return error(res, 404, "Language not found");
+    }
+
+    return success(res, 200, "Language deleted successfully");
+  } catch (err) {
+    next(err);
+  }
+};
+
+// =================== ADMIN ACCENT MANAGEMENT ===================
+
+// CREATE - Create a new accent (Admin only)
+exports.createAccent = async (req, res, next) => {
+  try {
+    const { language_id, name } = req.body;
+
+    const language = await Language.findById(language_id);
+    if (!language) {
+      return error(res, 404, "Language not found");
+    }
+
+    const accent = await Accent.create({ language: language_id, name });
+    const populatedAccent = await Accent.findById(accent._id).populate("language", "name code");
+
+    return success(res, 201, "Accent created successfully", {
+      accent: populatedAccent,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// READ - Get all accents (Admin only)
+exports.getAllAccents = async (req, res, next) => {
+  try {
+    const { language_id } = req.query;
+    const filter = {};
+    if (language_id) filter.language = language_id;
+
+    const accents = await Accent.find(filter).populate("language", "name code").sort({ name: 1 });
+
+    return success(res, 200, "Accents fetched successfully", {
+      accents,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// UPDATE - Update accent (Admin only)
+exports.updateAccent = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, language_id } = req.body;
+
+    const accent = await Accent.findById(id);
+    if (!accent) {
+      return error(res, 404, "Accent not found");
+    }
+
+    if (language_id) {
+      const language = await Language.findById(language_id);
+      if (!language) {
+        return error(res, 404, "Language not found");
+      }
+      accent.language = language_id;
+    }
+
+    if (name) accent.name = name;
+
+    await accent.save();
+    const updatedAccent = await Accent.findById(id).populate("language", "name code");
+
+    return success(res, 200, "Accent updated successfully", {
+      accent: updatedAccent,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE - Delete accent (Admin only)
+exports.deleteAccent = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const accent = await Accent.findByIdAndDelete(id);
+    
+    if (!accent) {
+      return error(res, 404, "Accent not found");
+    }
+
+    return success(res, 200, "Accent deleted successfully");
   } catch (err) {
     next(err);
   }

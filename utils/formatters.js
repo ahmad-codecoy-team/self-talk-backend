@@ -145,3 +145,37 @@ exports.formatNotificationResponse = (notification) => {
     updatedAt: notification.updatedAt,
   };
 };
+
+/**
+ * Format Language object for API responses
+ * @param {Object} language - Language object from database
+ * @returns {Object} - Formatted language object
+ */
+exports.formatLanguageResponse = (language) => {
+  if (!language) return null;
+
+  return {
+    _id: language._id,
+    name: language.name,
+    code: language.code,
+    createdAt: language.createdAt,
+    updatedAt: language.updatedAt,
+  };
+};
+
+/**
+ * Format Accent object for API responses
+ * @param {Object} accent - Accent object from database
+ * @returns {Object} - Formatted accent object
+ */
+exports.formatAccentResponse = (accent) => {
+  if (!accent) return null;
+
+  return {
+    _id: accent._id,
+    name: accent.name,
+    language: accent.language ? exports.formatLanguageResponse(accent.language) : null,
+    createdAt: accent.createdAt,
+    updatedAt: accent.updatedAt,
+  };
+};

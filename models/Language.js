@@ -1,20 +1,20 @@
 const mongoose = require("mongoose");
 
-const PromptSchema = new mongoose.Schema(
+const LanguageSchema = new mongoose.Schema(
   {
-    prompt: {
+    name: {
       type: String,
       required: true,
       trim: true,
-      maxlength: 5000,
     },
-    llmModal: {
+    code: {
       type: String,
-      required: false,
+      required: true,
+      unique: true,
       trim: true,
     },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Prompt", PromptSchema);
+module.exports = mongoose.model("Language", LanguageSchema);

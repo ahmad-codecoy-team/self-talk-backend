@@ -25,6 +25,14 @@ const {
   getAdminPrompt,
   updatePrompt,
   getAllCustomSupportRequests,
+  createLanguage,
+  getAllLanguages,
+  updateLanguage,
+  deleteLanguage,
+  createAccent,
+  getAllAccents,
+  updateAccent,
+  deleteAccent,
 } = require("../controllers/adminController");
 const { requireAuth, requireAdmin } = require("../middlewares/authMiddleware");
 const validate = require("../middlewares/validateMiddleware");
@@ -50,6 +58,13 @@ const {
   createPromptValidation,
   updatePromptValidation,
 } = require("../validators/promptValidator");
+
+const {
+  createLanguageValidation,
+  updateLanguageValidation,
+  createAccentValidation,
+  updateAccentValidation,
+} = require("../validators/languageValidator");
 
 const router = express.Router();
 
@@ -205,6 +220,62 @@ router.put(
   validate,
   updatePrompt
 );
+
+// =================== ADMIN LANGUAGE MANAGEMENT ===================
+
+// Create a new language (Admin only)
+router.post(
+  "/languages",
+  requireAuth,
+  requireAdmin,
+  createLanguageValidation,
+  validate,
+  createLanguage
+);
+
+// Get all languages (Admin only)
+router.get("/languages", requireAuth, requireAdmin, getAllLanguages);
+
+// Update language (Admin only)
+router.put(
+  "/languages/:id",
+  requireAuth,
+  requireAdmin,
+  updateLanguageValidation,
+  validate,
+  updateLanguage
+);
+
+// Delete language (Admin only)
+router.delete("/languages/:id", requireAuth, requireAdmin, deleteLanguage);
+
+// =================== ADMIN ACCENT MANAGEMENT ===================
+
+// Create a new accent (Admin only)
+router.post(
+  "/accents",
+  requireAuth,
+  requireAdmin,
+  createAccentValidation,
+  validate,
+  createAccent
+);
+
+// Get all accents (Admin only)
+router.get("/accents", requireAuth, requireAdmin, getAllAccents);
+
+// Update accent (Admin only)
+router.put(
+  "/accents/:id",
+  requireAuth,
+  requireAdmin,
+  updateAccentValidation,
+  validate,
+  updateAccent
+);
+
+// Delete accent (Admin only)
+router.delete("/accents/:id", requireAuth, requireAdmin, deleteAccent);
 
 // =================== ADMIN CUSTOM SUPPORT MANAGEMENT ===================
 

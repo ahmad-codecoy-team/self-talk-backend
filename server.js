@@ -19,6 +19,7 @@ const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const customSupportRoutes = require("./routes/customSupportRoutes");
 const promptRoutes = require("./routes/promptRoutes");
+const languageRoutes = require("./routes/languageRoutes");
 
 const app = express();
 const server = http.createServer(app);
@@ -349,7 +350,9 @@ app.use("/api/talk", talkRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/support", customSupportRoutes);
+// app.use("/api/support", customSupportRoutes);
 app.use("/api/prompt", promptRoutes);
+app.use("/api/languages", languageRoutes);
 
 // Catch-all route for 404s
 app.use((req, res) => {
