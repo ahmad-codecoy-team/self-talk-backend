@@ -1061,6 +1061,8 @@ exports.getAllCustomSupportRequests = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+
+
     // Build filter object for queries
     const filter = {};
     
@@ -1083,20 +1085,22 @@ exports.getAllCustomSupportRequests = async (req, res, next) => {
       .skip(skip)
       .limit(limit);
 
-    const formattedRequests = supportRequests.map((request) => ({
-      _id: request._id,
-      message: request.message,
-      user: {
-        _id: request.userId._id,
-        username: request.userId.username,
-        email: request.userId.email,
-        profilePicture: request.userId.profilePicture,
-        is_suspended: request.userId.is_suspended,
-        userCreatedAt: request.userId.createdAt,
-      },
-      createdAt: request.createdAt,
-      updatedAt: request.updatedAt,
-    }));
+    const formattedRequests = supportRequests
+      .filter((request) => request.userId) // Filter out requests where user is null (e.g. deleted users)
+      .map((request) => ({
+        _id: request._id,
+        message: request.message,
+        user: {
+          _id: request.userId._id,
+          username: request.userId.username,
+          email: request.userId.email,
+          profilePicture: request.userId.profilePicture,
+          is_suspended: request.userId.is_suspended,
+          userCreatedAt: request.userId.createdAt,
+        },
+        createdAt: request.createdAt,
+        updatedAt: request.updatedAt,
+      }));
 
     return success(
       res,
