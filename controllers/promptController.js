@@ -5,7 +5,7 @@ const { success, error } = require("../utils/response");
 exports.getPrompt = async (req, res, next) => {
   try {
     // Get the first prompt from database (global prompt)
-    const prompt = await Prompt.findOne().select("prompt llmModal createdAt updatedAt");
+    const prompt = await Prompt.findOne().select("prompt llmModal ttsModal createdAt updatedAt");
 
     if (!prompt) {
       return error(res, 404, "No prompt found");
@@ -16,6 +16,7 @@ exports.getPrompt = async (req, res, next) => {
         _id: prompt._id,
         prompt: prompt.prompt,
         llmModal: prompt.llmModal,
+        ttsModal: prompt.ttsModal,
         createdAt: prompt.createdAt,
         updatedAt: prompt.updatedAt,
       },

@@ -790,7 +790,7 @@ exports.deleteNotification = async (req, res, next) => {
 // CREATE - Create a new prompt (Admin only)
 exports.createPrompt = async (req, res, next) => {
   try {
-    const { prompt, llmModal } = req.body;
+    const { prompt, llmModal, ttsModal } = req.body;
 
     // Check if prompt already exists (since we only want one global prompt)
     const existingPrompt = await Prompt.findOne();
@@ -801,6 +801,7 @@ exports.createPrompt = async (req, res, next) => {
     const newPrompt = await Prompt.create({
       prompt,
       llmModal,
+      ttsModal,
     });
 
     return success(res, 201, "Prompt created successfully", {
@@ -808,6 +809,7 @@ exports.createPrompt = async (req, res, next) => {
         _id: newPrompt._id,
         prompt: newPrompt.prompt,
         llmModal: newPrompt.llmModal,
+        ttsModal: newPrompt.ttsModal,
         createdAt: newPrompt.createdAt,
         updatedAt: newPrompt.updatedAt,
       },
@@ -820,7 +822,7 @@ exports.createPrompt = async (req, res, next) => {
 // READ - Get the global prompt (Admin only)
 exports.getAdminPrompt = async (req, res, next) => {
   try {
-    const prompt = await Prompt.findOne().select("prompt llmModal createdAt updatedAt");
+    const prompt = await Prompt.findOne().select("prompt llmModal ttsModal createdAt updatedAt");
 
     if (!prompt) {
       return error(res, 404, "No prompt found");
@@ -831,6 +833,7 @@ exports.getAdminPrompt = async (req, res, next) => {
         _id: prompt._id,
         prompt: prompt.prompt,
         llmModal: prompt.llmModal,
+        ttsModal: prompt.ttsModal,
         createdAt: prompt.createdAt,
         updatedAt: prompt.updatedAt,
       },
@@ -843,7 +846,7 @@ exports.getAdminPrompt = async (req, res, next) => {
 // UPDATE - Update the global prompt (Admin only)
 exports.updatePrompt = async (req, res, next) => {
   try {
-    const { prompt, llmModal } = req.body;
+    const { prompt, llmModal, ttsModal } = req.body;
 
     const existingPrompt = await Prompt.findOne();
     if (!existingPrompt) {
@@ -852,6 +855,7 @@ exports.updatePrompt = async (req, res, next) => {
 
     existingPrompt.prompt = prompt;
     if (llmModal !== undefined) existingPrompt.llmModal = llmModal;
+    if (ttsModal !== undefined) existingPrompt.ttsModal = ttsModal;
     await existingPrompt.save();
 
     return success(res, 200, "Prompt updated successfully", {
@@ -859,6 +863,7 @@ exports.updatePrompt = async (req, res, next) => {
         _id: existingPrompt._id,
         prompt: existingPrompt.prompt,
         llmModal: existingPrompt.llmModal,
+        ttsModal: existingPrompt.ttsModal,
         createdAt: existingPrompt.createdAt,
         updatedAt: existingPrompt.updatedAt,
       },

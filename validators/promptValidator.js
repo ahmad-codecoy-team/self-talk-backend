@@ -15,6 +15,12 @@ exports.createPromptValidation = [
     .withMessage("LLM Modal must be a string")
     .trim()
     .escape(),
+  body("ttsModal")
+    .optional()
+    .isString()
+    .withMessage("TTS Modal must be a string")
+    .trim()
+    .escape(),
 ];
 
 // Update prompt validation
@@ -30,6 +36,12 @@ exports.updatePromptValidation = [
     .optional()
     .isString()
     .withMessage("LLM Modal must be a string")
+    .trim()
+    .escape(),
+  body("ttsModal")
+    .optional()
+    .isString()
+    .withMessage("TTS Modal must be a string")
     .trim()
     .escape(),
 ];

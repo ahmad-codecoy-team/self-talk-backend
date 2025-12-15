@@ -13,6 +13,11 @@ const PromptSchema = new mongoose.Schema(
       required: false,
       trim: true,
     },
+    ttsModal: {
+      type: String,
+      required: false,
+      trim: true,
+    },
   },
   { timestamps: true }
 );
