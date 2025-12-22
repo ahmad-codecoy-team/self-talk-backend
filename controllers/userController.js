@@ -36,6 +36,10 @@ exports.getProfile = async (req, res, next) => {
       return error(res, 404, "User not found");
     }
 
+    // Update lastAccess timestamp
+    user.lastAccess = new Date();
+    await user.save();
+
     return success(res, 200, "User profile fetched successfully", {
       user: formatUserResponse(user),
     });

@@ -24,6 +24,8 @@ exports.formatUserResponse = (user) => {
       : null,
     role: user.role || null,
     is_suspended: user.is_suspended || false,
+    lastAccess: user.lastAccess || null,
+    comped: user.comped || false,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

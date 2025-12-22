@@ -48,6 +48,14 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    lastAccess: {
+      type: Date,
+      default: null,
+    },
+    comped: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

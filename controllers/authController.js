@@ -296,6 +296,10 @@ exports.login = async (req, res, next) => {
       );
     }
 
+    // Update lastAccess timestamp
+    user.lastAccess = new Date();
+    await user.save();
+
     // Generate permanent token for admin, regular expiring token for users
     const isAdmin = user.role && user.role.name === "admin";
     const accessToken = signAccessToken({ uid: user._id }, isAdmin);

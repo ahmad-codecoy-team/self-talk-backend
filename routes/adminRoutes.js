@@ -7,6 +7,9 @@ const {
   deletePlan,
   getAllUsers,
   toggleUserSuspension,
+  deleteUserElevenLabsData,
+  bulkUserActions,
+  adminBuySubscriptionForUser,
   createFAQ,
   getAllFAQs,
   getFAQById,
@@ -96,6 +99,30 @@ router.put(
   requireAuth,
   requireAdmin,
   toggleUserSuspension
+);
+
+// Delete user's ElevenLabs data only (Admin only)
+router.delete(
+  "/users/:id/elevenlabs",
+  requireAuth,
+  requireAdmin,
+  deleteUserElevenLabsData
+);
+
+// Bulk actions for users (Admin only)
+router.post(
+  "/users/bulk-actions",
+  requireAuth,
+  requireAdmin,
+  bulkUserActions
+);
+
+// Admin purchase subscription for user (Admin only)
+router.post(
+  "/users/buy-subscription",
+  requireAuth,
+  requireAdmin,
+  adminBuySubscriptionForUser
 );
 
 // =================== ADMIN FAQ MANAGEMENT ===================

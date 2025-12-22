@@ -1,4 +1,5 @@
 const SubscriptionPlan = require("../models/SubscriptionPlan");
+const UserSubscription = require("../models/UserSubscription");
 const User = require("../models/User");
 const FAQ = require("../models/FAQ");
 const Document = require("../models/Document");
@@ -18,110 +19,6 @@ const {
   formatAccentResponse,
 } = require("../utils/formatters");
 
-// =================== ADMIN SUBSCRIPTION PLAN MANAGEMENT ===================
-
-// CREATE - Create a new subscription plan for a specific user (Admin only)
-// exports.createPlan = async (req, res, next) => {
-//   try {
-//     const { name, status, price, billing_period, voice_minutes, features, description, is_popular, currency, user_id, total_minutes, available_minutes } = req.body;
-
-//     // Validation
-//     if (!name || typeof name !== 'string' || name.trim().length === 0) {
-//       return error(res, 400, "Plan name is required and must be a non-empty string");
-//     }
-
-//     if (!["Free", "Premium", "Super"].includes(name)) {
-//       return error(res, 400, "Plan name must be Free, Premium, or Super");
-//     }
-
-//     if (status && !["Active", "Inactive"].includes(status)) {
-//       return error(res, 400, "Invalid status. Must be Active or Inactive");
-//     }
-
-//     if (price === undefined || price < 0) {
-//       return error(res, 400, "Price is required and must be >= 0");
-//     }
-
-//     if (!billing_period || !["yearly", "monthly"].includes(billing_period)) {
-//       return error(res, 400, "Invalid billing period. Must be yearly or monthly");
-//     }
-
-//     if (voice_minutes === undefined || voice_minutes < 0) {
-//       return error(res, 400, "Voice minutes is required and must be >= 0");
-//     }
-
-//     if (!features || !Array.isArray(features) || features.length === 0) {
-//       return error(res, 400, "Features array is required and cannot be empty");
-//     }
-
-//     if (!description) {
-//       return error(res, 400, "Description is required");
-//     }
-
-//     if (!user_id) {
-//       return error(res, 400, "User ID is required");
-//     }
-
-//     if (total_minutes === undefined || total_minutes < 0) {
-//       return error(res, 400, "Total minutes is required and must be >= 0");
-//     }
-
-//     if (available_minutes === undefined || available_minutes < 0) {
-//       return error(res, 400, "Available minutes is required and must be >= 0");
-//     }
-
-//     // Verify user exists
-//     const user = await User.findById(user_id);
-//     if (!user) {
-//       return error(res, 404, "User not found");
-//     }
-
-//     // Check if user already has a plan of this type
-//     const existingPlan = await SubscriptionPlan.findOne({ name, user_id });
-//     if (existingPlan) {
-//       return error(res, 409, `User already has a '${name}' plan. Delete the existing plan first or update it.`);
-//     }
-
-//     // Delete user's current subscription if switching plans
-//     if (user.current_subscription) {
-//       await SubscriptionPlan.deleteOne({
-//         _id: user.current_subscription,
-//         user_id: user_id
-//       });
-//     }
-
-//     const plan = await SubscriptionPlan.create({
-//       name,
-//       status: status || "Active",
-//       price,
-//       billing_period,
-//       voice_minutes,
-//       features,
-//       description,
-//       is_popular: is_popular || false,
-//       currency: currency || "EUR",
-//       total_minutes,
-//       available_minutes,
-//       user_id,
-//       subscription_started_at: new Date(),
-//       subscription_end_date: name.toLowerCase() === "free" ? null : (() => {
-//         const endDate = new Date();
-//         endDate.setDate(endDate.getDate() + 30);
-//         return endDate;
-//       })(),
-//     });
-
-//     // Update user's current subscription reference
-//     user.current_subscription = plan._id;
-//     await user.save();
-
-//     return success(res, 201, "Subscription plan created successfully", {
-//       plan: formatPlanResponse(plan)
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
 exports.createPlan = async (req, res, next) => {
   try {
     const {
@@ -364,6 +261,9 @@ exports.deletePlan = async (req, res, next) => {
 
 // =================== ADMIN USER MANAGEMENT ===================
 
+const axios = require("axios");
+const ELEVENLABS_API_KEY = "bfab645123b771ca7d9fd353e04a2fcdb0433e32629adc";
+
 // GET - Get all users with pagination (Admin only)
 exports.getAllUsers = async (req, res, next) => {
   try {
@@ -437,6 +337,382 @@ exports.toggleUserSuspension = async (req, res, next) => {
     const action = user.is_suspended ? "suspended" : "unsuspended";
     return success(res, 200, `User ${action} successfully`, {
       user: formatUserResponse(user),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// DELETE - Delete user's ElevenLabs data only (Admin only)
+exports.deleteUserElevenLabsData = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id)
+      .populate("role")
+      .populate("current_subscription");
+    if (!user) {
+      return error(res, 404, "User not found");
+    }
+
+    // Prevent deleting admin users' data
+    if (user.role && user.role.name === "admin") {
+      return error(res, 403, "Cannot delete admin users' ElevenLabs data");
+    }
+
+    // Delete voices from ElevenLabs
+    const deletePromises = [];
+
+    // Delete voice from ElevenLabs if voice_id exists
+    if (user.voice_id) {
+      deletePromises.push(
+        axios
+          .delete(`https://api.elevenlabs.io/v1/voices/${user.voice_id}`, {
+            headers: {
+              "xi-api-key": ELEVENLABS_API_KEY,
+            },
+          })
+          .catch((err) => {
+            console.error(
+              `Failed to delete voice ${user.voice_id}:`,
+              err.response?.data || err.message
+            );
+            // Don't throw error, just log it
+          })
+      );
+    }
+
+    // Delete agent from ElevenLabs if model_id exists
+    if (user.model_id) {
+      deletePromises.push(
+        axios
+          .delete(
+            `https://api.elevenlabs.io/v1/convai/agents/${user.model_id}`,
+            {
+              headers: {
+                "xi-api-key": ELEVENLABS_API_KEY,
+              },
+            }
+          )
+          .catch((err) => {
+            console.error(
+              `Failed to delete agent ${user.model_id}:`,
+              err.response?.data || err.message
+            );
+            // Don't throw error, just log it
+          })
+      );
+    }
+
+    // Wait for all ElevenLabs deletions to complete
+    if (deletePromises.length > 0) {
+      await Promise.all(deletePromises);
+    }
+
+    // Reset user's voice_id and model_id to null
+    user.voice_id = null;
+    user.model_id = null;
+    await user.save();
+
+    return success(res, 200, "User's ElevenLabs data deleted successfully", {
+      user: formatUserResponse(user),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST - Bulk actions for users (suspend/unsuspend/delete) (Admin only)
+exports.bulkUserActions = async (req, res, next) => {
+  const mongoose = require("mongoose");
+  const { deleteProfilePicture } = require("./authController");
+  const UserSubscription = require("../models/UserSubscription");
+  const Conversation = require("../models/Conversation");
+  const Message = require("../models/Message");
+  const OTP = require("../models/OTP");
+
+  try {
+    const { userIds, action } = req.body;
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return error(res, 400, "userIds array is required");
+    }
+
+    if (!action || !["suspend", "unsuspend", "delete"].includes(action)) {
+      return error(res, 400, "Invalid action. Must be suspend, unsuspend, or delete");
+    }
+
+    const users = await User.find({ _id: { $in: userIds } })
+      .populate("role")
+      .populate("current_subscription");
+
+    if (users.length === 0) {
+      return error(res, 404, "No users found");
+    }
+
+    // Prevent actions on admin users
+    const adminUsers = users.filter(user => user.role && user.role.name === "admin");
+    if (adminUsers.length > 0) {
+      return error(res, 403, "Cannot perform bulk actions on admin users");
+    }
+
+    let results = [];
+
+    if (action === "suspend" || action === "unsuspend") {
+      // Bulk suspend/unsuspend
+      const isSuspended = action === "suspend";
+      
+      for (const user of users) {
+        user.is_suspended = isSuspended;
+        await user.save();
+        results.push({
+          userId: user._id,
+          action: action,
+          success: true,
+          user: formatUserResponse(user)
+        });
+      }
+
+      return success(res, 200, `Users ${action}ed successfully`, {
+        results,
+        totalProcessed: results.length
+      });
+
+    } else if (action === "delete") {
+      // Bulk delete users
+      for (const user of users) {
+        const session = await mongoose.startSession();
+        
+        try {
+          // Delete ElevenLabs data first
+          const deletePromises = [];
+
+          if (user.voice_id) {
+            deletePromises.push(
+              axios
+                .delete(`https://api.elevenlabs.io/v1/voices/${user.voice_id}`, {
+                  headers: {
+                    "xi-api-key": ELEVENLABS_API_KEY,
+                  },
+                })
+                .catch((err) => {
+                  console.error(
+                    `Failed to delete voice ${user.voice_id}:`,
+                    err.response?.data || err.message
+                  );
+                })
+            );
+          }
+
+          if (user.model_id) {
+            deletePromises.push(
+              axios
+                .delete(
+                  `https://api.elevenlabs.io/v1/convai/agents/${user.model_id}`,
+                  {
+                    headers: {
+                      "xi-api-key": ELEVENLABS_API_KEY,
+                    },
+                  }
+                )
+                .catch((err) => {
+                  console.error(
+                    `Failed to delete agent ${user.model_id}:`,
+                    err.response?.data || err.message
+                  );
+                })
+            );
+          }
+
+          if (deletePromises.length > 0) {
+            await Promise.all(deletePromises);
+          }
+
+          // Delete user data in transaction
+          await session.withTransaction(async () => {
+            await Message.deleteMany({ userId: user._id }, { session });
+            await Conversation.deleteMany({ userId: user._id }, { session });
+            await OTP.deleteMany({ email: user.email }, { session });
+            
+            if (user.current_subscription) {
+              await UserSubscription.findByIdAndDelete(user.current_subscription, { session });
+            }
+            
+            await User.findByIdAndDelete(user._id, { session });
+          });
+
+          // Delete profile picture
+          await deleteProfilePicture(user._id, user.profilePicture);
+
+          results.push({
+            userId: user._id,
+            action: "delete",
+            success: true
+          });
+
+        } catch (err) {
+          results.push({
+            userId: user._id,
+            action: "delete",
+            success: false,
+            error: err.message
+          });
+        } finally {
+          await session.endSession();
+        }
+      }
+
+      return success(res, 200, "Bulk delete completed", {
+        results,
+        totalProcessed: results.length,
+        successful: results.filter(r => r.success).length,
+        failed: results.filter(r => !r.success).length
+      });
+    }
+
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST - Admin purchase subscription for user (Admin only)
+exports.adminBuySubscriptionForUser = async (req, res, next) => {
+  try {
+    const { userId, name } = req.body;
+
+    if (!userId) {
+      return error(res, 400, "User ID is required");
+    }
+
+    if (!name) {
+      return error(res, 400, "Plan name is required");
+    }
+
+    // Normalize plan name case
+    let planName = name;
+    if (typeof planName === "string") {
+      planName = planName.charAt(0).toUpperCase() + planName.slice(1).toLowerCase();
+    }
+
+    // Validate plan name
+    const validPlans = ["Free", "Premium", "Super"];
+    if (!validPlans.includes(planName)) {
+      return error(
+        res,
+        400,
+        "Invalid plan name. Valid plans: Free, Premium, Super"
+      );
+    }
+
+    // Find the plan template
+    const planTemplate = await SubscriptionPlan.findOne({ name: planName });
+    if (!planTemplate) {
+      return error(res, 404, `${planName} plan template not found in database`);
+    }
+
+    // Find the target user
+    const user = await User.findById(userId).populate("role");
+    if (!user) {
+      return error(res, 404, "User not found");
+    }
+
+    // Prevent purchasing subscription for admin users
+    if (user.role && user.role.name === "admin") {
+      return error(res, 403, "Cannot purchase subscription for admin users");
+    }
+
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setMonth(endDate.getMonth() + 1);
+
+    const minutes = planTemplate.voice_minutes;
+
+    // Helper function to calculate total seconds from minutes
+    const calculateTotalSeconds = (userSubscription) => {
+      const availableMinutes = userSubscription.available_minutes || 0;
+      const extraMinutes = userSubscription.extra_minutes || 0;
+      return Math.floor((availableMinutes + extraMinutes) * 60);
+    };
+
+    // Helper function to update seconds field
+    const updateSecondsField = async (userSubscription) => {
+      userSubscription.seconds = Math.floor(calculateTotalSeconds(userSubscription));
+      await userSubscription.save();
+    };
+
+    // If user has existing subscription, preserve extra_minutes and update fields
+    if (user.current_subscription) {
+      const existingSubscription = await UserSubscription.findById(
+        user.current_subscription
+      );
+      const preservedExtraMinutes = existingSubscription
+        ? existingSubscription.extra_minutes
+        : 0;
+
+      // Update existing subscription with new plan data but preserve extra_minutes
+      const updateData = {
+        plan_id: planTemplate._id,
+        name: planTemplate.name,
+        status: planTemplate.status,
+        price: planTemplate.price,
+        billing_period: planTemplate.billing_period,
+        features: planTemplate.features,
+        description: planTemplate.description,
+        is_popular: planTemplate.is_popular,
+        currency: planTemplate.currency,
+        total_minutes: minutes + preservedExtraMinutes,
+        available_minutes: minutes,
+        extra_minutes: preservedExtraMinutes,
+        recordings: [],
+        subscription_started_at: now,
+        subscription_end_date: endDate,
+      };
+      
+      const updatedSubscription = await UserSubscription.findByIdAndUpdate(
+        user.current_subscription,
+        updateData,
+        { new: true }
+      );
+      
+      // Calculate seconds from total available time (available + extra minutes)
+      await updateSecondsField(updatedSubscription);
+    } else {
+      // Create new subscription if none exists
+      const newUserSubscription = await UserSubscription.create({
+        plan_id: planTemplate._id,
+        name: planTemplate.name,
+        status: planTemplate.status,
+        price: planTemplate.price,
+        billing_period: planTemplate.billing_period,
+        features: planTemplate.features,
+        description: planTemplate.description,
+        is_popular: planTemplate.is_popular,
+        currency: planTemplate.currency,
+        total_minutes: minutes,
+        available_minutes: minutes,
+        extra_minutes: 0,
+        recordings: [],
+        subscription_started_at: now,
+        subscription_end_date: endDate,
+      });
+
+      // Calculate seconds from available + extra minutes
+      await updateSecondsField(newUserSubscription);
+
+      user.current_subscription = newUserSubscription._id;
+      await user.save();
+    }
+
+    // Set comped flag to true since admin purchased this subscription
+    await User.findByIdAndUpdate(userId, { comped: true });
+
+    const updatedUser = await User.findById(userId)
+      .select("-password")
+      .populate("role")
+      .populate("current_subscription");
+
+    return success(res, 200, `Successfully purchased ${planName} plan for user`, {
+      user: formatUserResponse(updatedUser),
     });
   } catch (err) {
     next(err);
@@ -795,7 +1071,11 @@ exports.createPrompt = async (req, res, next) => {
     // Check if prompt already exists (since we only want one global prompt)
     const existingPrompt = await Prompt.findOne();
     if (existingPrompt) {
-      return error(res, 409, "A global prompt already exists. Please update the existing prompt instead.");
+      return error(
+        res,
+        409,
+        "A global prompt already exists. Please update the existing prompt instead."
+      );
     }
 
     const newPrompt = await Prompt.create({
@@ -822,7 +1102,9 @@ exports.createPrompt = async (req, res, next) => {
 // READ - Get the global prompt (Admin only)
 exports.getAdminPrompt = async (req, res, next) => {
   try {
-    const prompt = await Prompt.findOne().select("prompt llmModal ttsModal createdAt updatedAt");
+    const prompt = await Prompt.findOne().select(
+      "prompt llmModal ttsModal createdAt updatedAt"
+    );
 
     if (!prompt) {
       return error(res, 404, "No prompt found");
@@ -946,11 +1228,15 @@ exports.updateLanguage = async (req, res, next) => {
 exports.deleteLanguage = async (req, res, next) => {
   try {
     const { id } = req.params;
-    
+
     // Check if language has accents
     const accentsCount = await Accent.countDocuments({ language: id });
     if (accentsCount > 0) {
-      return error(res, 400, "Cannot delete language with associated accents. Delete accents first.");
+      return error(
+        res,
+        400,
+        "Cannot delete language with associated accents. Delete accents first."
+      );
     }
 
     const language = await Language.findByIdAndDelete(id);
@@ -977,7 +1263,10 @@ exports.createAccent = async (req, res, next) => {
     }
 
     const accent = await Accent.create({ language: language_id, name });
-    const populatedAccent = await Accent.findById(accent._id).populate("language", "name code");
+    const populatedAccent = await Accent.findById(accent._id).populate(
+      "language",
+      "name code"
+    );
 
     return success(res, 201, "Accent created successfully", {
       accent: populatedAccent,
@@ -994,7 +1283,9 @@ exports.getAllAccents = async (req, res, next) => {
     const filter = {};
     if (language_id) filter.language = language_id;
 
-    const accents = await Accent.find(filter).populate("language", "name code").sort({ name: 1 });
+    const accents = await Accent.find(filter)
+      .populate("language", "name code")
+      .sort({ name: 1 });
 
     return success(res, 200, "Accents fetched successfully", {
       accents,
@@ -1026,7 +1317,10 @@ exports.updateAccent = async (req, res, next) => {
     if (name) accent.name = name;
 
     await accent.save();
-    const updatedAccent = await Accent.findById(id).populate("language", "name code");
+    const updatedAccent = await Accent.findById(id).populate(
+      "language",
+      "name code"
+    );
 
     return success(res, 200, "Accent updated successfully", {
       accent: updatedAccent,
@@ -1041,7 +1335,7 @@ exports.deleteAccent = async (req, res, next) => {
   try {
     const { id } = req.params;
     const accent = await Accent.findByIdAndDelete(id);
-    
+
     if (!accent) {
       return error(res, 404, "Accent not found");
     }
@@ -1061,16 +1355,12 @@ exports.getAllCustomSupportRequests = async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-
-
     // Build filter object for queries
     const filter = {};
-    
+
     // Optional filters
     if (req.query.search) {
-      filter.$or = [
-        { message: { $regex: req.query.search, $options: "i" } }
-      ];
+      filter.$or = [{ message: { $regex: req.query.search, $options: "i" } }];
     }
 
     // Get total count for pagination
@@ -1079,7 +1369,10 @@ exports.getAllCustomSupportRequests = async (req, res, next) => {
 
     // Get support requests with populated user data
     const supportRequests = await CustomSupport.find(filter)
-      .populate("userId", "username email profilePicture is_suspended createdAt")
+      .populate(
+        "userId",
+        "username email profilePicture is_suspended createdAt"
+      )
       .select("message createdAt updatedAt")
       .sort({ createdAt: -1 })
       .skip(skip)
